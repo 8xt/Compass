@@ -59,6 +59,12 @@ export function useProviderKeys({
   const [posterSrvDraft, setPosterSrvDraft] = useState(settings.posterBaseUrl);
   const [auddDraft, setAuddDraft] = useState(settings.auddKey);
   const [songAiDraft, setSongAiDraft] = useState(settings.songIdAiKey);
+  // See settings.tsx: drafts must follow the values once they load.
+  useEffect(() => { setMdblistDraft(settings.mdblistKey); }, [settings.mdblistKey]);
+  useEffect(() => { setNytDraft(settings.nytKey); }, [settings.nytKey]);
+  useEffect(() => { setPosterSrvDraft(settings.posterBaseUrl); }, [settings.posterBaseUrl]);
+  useEffect(() => { setAuddDraft(settings.auddKey); }, [settings.auddKey]);
+  useEffect(() => { setSongAiDraft(settings.songIdAiKey); }, [settings.songIdAiKey]);
   const [extraSaved, setExtraSaved] = useState<
     "mdblist" | "postersrv" | "ai" | "audd" | "songai" | "nyt" | null
   >(null);
