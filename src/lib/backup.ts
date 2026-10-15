@@ -370,6 +370,16 @@ export type BackupValidationError =
   | "This backup has no data in it."
   | "This backup contained nothing restorable.";
 
+/**
+ * Harbor (beta) labelled its keys harbor*, Compass labels them compass*.
+ * Normalising here (older backups, imported data) keeps sections, secrets and
+ * per-profile handling working on Compass key names. A no-op for compass keys.
+ */
+export function renameHarborKey(key: string): string {
+  if (/^harbor([.\-]|[A-Z])/.test(key)) return `compass${key.slice(6)}`;
+  return key;
+}
+
 export type ParsedBackup =
   | { ok: true; backup: Backup }
   | { ok: false; error: BackupValidationError };
@@ -385,7 +395,8 @@ export function parseBackup(text: string): ParsedBackup {
     return { ok: false, error: "Unrecognized file." };
   }
   const b = json as Partial<Backup>;
-  if (b.format !== FORMAT) {
+  const legacyHarbor = b.format === "harbor-backup";
+  if (b.format !== FORMAT && !legacyHarbor) {
     return { ok: false, error: "This is not a Compass backup file." };
   }
   if (!b.data || typeof b.data !== "object") {
@@ -393,7 +404,8 @@ export function parseBackup(text: string): ParsedBackup {
   }
   const data: Record<string, string> = {};
   for (const [k, v] of Object.entries(b.data)) {
-    if (typeof v === "string" && isPortable(k)) data[k] = v;
+    const key = renameHarborKey(k);
+    if (typeof v === "string" && isPortable(key)) data[key] = v;
   }
   if (Object.keys(data).length === 0) {
     return { ok: false, error: "This backup contained nothing restorable." };
