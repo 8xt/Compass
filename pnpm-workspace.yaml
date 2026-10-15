@@ -1,4 +1,5 @@
 allowBuilds:
+  classic-level: true
   esbuild: true
   protobufjs: false
 blockExoticSubdeps: false
@@ -6,4 +7,5 @@ minimumReleaseAgeExclude:
   - '@tauri-apps/api@2.12.0'
   - html-to-pdfmake@2.5.35
 onlyBuiltDependencies:
+  - classic-level
   - esbuild
