@@ -221,6 +221,17 @@ jobs:
             [ -e "$APP/Frameworks/$rel" ] || MISSING="$MISSING $lib"
           done
           DEPS=$(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep -v '^/System/\|^/usr/lib/' | tr '\n' ' ')
+          # Symbolicate the startup crash reported from the device (build 5c438346...).
+          {
+            echo "uuid: $(dwarfdump --uuid "$EXE" | head -1)"
+            DSYM=$(find "${ARCHIVE:-src-tauri/gen/apple/build}" -name '*.dSYM' -path '*Compass*' 2>/dev/null | head -1)
+            echo "dsym: ${DSYM:-none}"
+            for addr in 0x100de78b0 0x100de7084 0x1002ce924 0x10000400c; do
+              echo "$addr exe: $(atos -arch arm64 -o "$EXE" -l 0x100000000 $addr 2>&1)"
+              [ -n "$DSYM" ] && echo "$addr dsym: $(atos -arch arm64 -o "$DSYM/Contents/Resources/DWARF/$(basename "$EXE")" -l 0x100000000 $addr 2>&1)"
+            done
+          } > symbolicate.txt 2>&1 || true
+          echo "::notice title=crash-symbols::$(tr '\n' '|' < symbolicate.txt)"
           echo "::notice title=app-deps::non-system deps: ${DEPS:-none} | Frameworks/: $(ls "$APP/Frameworks" 2>/dev/null | tr '\n' ' ') | missing:${MISSING:- none}"
           [ -z "$MISSING" ] || { echo "::error::app links libraries that are not in the bundle:$MISSING"; exit 1; }
           rm -rf ipa && mkdir -p ipa/Payload
