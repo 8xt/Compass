@@ -90,6 +90,8 @@ mod installer_handoff;
 mod media_controls;
 #[cfg(target_os = "windows")]
 mod taskbar;
+// Floating always-on-top windows: desktop only, mobile has a single fixed window.
+#[cfg(desktop)]
 mod modal_overlay;
 #[cfg(desktop)]
 mod mpv;
@@ -105,6 +107,7 @@ mod multiview;
 mod music;
 #[cfg(desktop)]
 mod pip;
+#[cfg(desktop)]
 mod pip_window;
 #[cfg(target_os = "macos")]
 mod pip_mac;
