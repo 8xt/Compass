@@ -72,6 +72,11 @@ export function SourceErrorCard({
         <div className="flex flex-col gap-2">
           <h2 className="font-display text-[20px] font-medium text-ink">{t(info.title)}</h2>
           <p className="text-[13.5px] leading-relaxed text-ink-muted">{t(info.detail)}</p>
+          {error.detail && (
+            <p className="select-text break-words text-[12px] leading-relaxed text-ink-subtle">
+              {error.detail}
+            </p>
+          )}
         </div>
         {(!error.exhausted || !!error.host) && (
           <div className="flex w-full flex-col gap-1 rounded-xl border border-edge-soft bg-canvas/50 px-4 py-3">

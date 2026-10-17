@@ -251,7 +251,7 @@ export function createHtml5Bridge(): PlayerBridge {
   // iOS: WebKit cannot open some files (MKV, DTS/TrueHD audio...) and often just
   // sits at "nothing loaded" instead of raising an error. Turn that into an error
   // so the player stops spinning and the user can pick another source.
-  const IOS_STALL_MS = 25_000;
+  const IOS_STALL_MS = 30_000;
   const clearIosStall = () => {
     if (iosStallTimer != null) window.clearTimeout(iosStallTimer);
     iosStallTimer = null;
@@ -264,12 +264,25 @@ export function createHtml5Bridge(): PlayerBridge {
     iosStallTimer = window.setTimeout(() => {
       iosStallTimer = null;
       if (!video || revision !== mediaRevision || snap.firstFrameReady) return;
-      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) return;
+      const v = video;
       const ext = (url.toLowerCase().split("?")[0].match(/\.([a-z0-9]{2,4})$/) ?? [])[1];
-      iosStallMessage =
-        ext === "mkv" || ext === "avi"
-          ? `iPad can't play .${ext} files. Pick an MP4 source instead.`
-          : "This source didn't start on iPad (the format may not be supported). Pick another source.";
+      let host = "";
+      try {
+        host = new URL(url).host;
+      } catch {
+        /* not a URL */
+      }
+      const buffered = v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0;
+      const diag = `[ready ${v.readyState}, net ${v.networkState}, ${v.videoWidth}x${v.videoHeight}, buf ${buffered.toFixed(1)}s, ${ext ? "." + ext : "no ext"}, ${host}]`;
+      if (ext === "mkv" || ext === "avi") {
+        iosStallMessage = `iPad can't play .${ext} files. Pick an MP4 source instead. ${diag}`;
+      } else if (v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth === 0) {
+        iosStallMessage = `iPad can't decode this video track (often x265/HEVC 10-bit or MKV inside). Pick another source. ${diag}`;
+      } else if (v.readyState < HTMLMediaElement.HAVE_METADATA) {
+        iosStallMessage = `iPad couldn't open this source (format not supported or server not responding). Pick another source. ${diag}`;
+      } else {
+        iosStallMessage = `This source didn't start on iPad. Pick another source. ${diag}`;
+      }
       refreshSnapshot();
     }, IOS_STALL_MS);
   };

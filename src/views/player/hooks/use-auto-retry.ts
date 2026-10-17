@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
+import { isIosApp } from "@/lib/html5-only";
 import {
   getPlaybackBuffered,
   getPlaybackPosition,
@@ -30,7 +31,7 @@ type OpenPicker = (
   opts?: { autoPlay?: boolean; attempt?: number },
 ) => void;
 
-export type SourceError = { status: number; host: string; exhausted?: boolean };
+export type SourceError = { status: number; host: string; exhausted?: boolean; detail?: string };
 
 function hostOf(url: string): string {
   try {
@@ -246,6 +247,20 @@ export function useAutoRetry(params: {
       if (current()) triggerAutoRetry(`playback error "${snap.errorCode}"`);
     };
     const cancel = () => ac.abort();
+    // iOS: the system player can't decode this file. Reloading, proxying or another
+    // debrid serves the same file, and there is no ffmpeg to remux it, so skip
+    // straight to the next source (auto-play) or explain why (manual pick).
+    if (isIosApp() && snap.errorCode === "codec") {
+      if (!instantPlay && !inRoom) {
+        setSourceError(
+          (prev) =>
+            prev ?? { status: 0, host: hostOf(src.url), detail: snap.errorMessage ?? undefined },
+        );
+        return;
+      }
+      triggerAutoRetry("iOS cannot play this format");
+      return;
+    }
     const failoverHash = src.streamRef?.infoHash;
     if (failoverHash && debrids.length > 0 && !debridFailoverTriedRef.current) {
       debridFailoverTriedRef.current = true;
