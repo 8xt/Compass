@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useSettings } from "@/lib/settings";
+import { isIosApp } from "@/lib/html5-only";
+import { iosPlayability } from "@/lib/streams/ios-playable";
+import { realDebridAppleStream } from "@/lib/debrid/rd-transcode";
 import type { Meta } from "@/lib/cinemeta";
 import type { DebridStore } from "@/lib/debrid/types";
 import { invalidatePreparedDebridLink } from "@/lib/debrid/playback-preparation";
@@ -129,6 +133,7 @@ export function usePickHandler({
   setResolveError: (error: PickerError | null) => void;
   setResolving: Dispatch<SetStateAction<ResolvingSelection | null>>;
 }) {
+  const { settings: pickSettings } = useSettings();
   const [queuedHash, setQueuedHash] = useState<string | null>(null);
   const [queuedDownloadKeys, setQueuedDownloadKeys] = useState<Set<string>>(() => new Set());
   const [debridDown, setDebridDown] = useState(false);
@@ -293,7 +298,25 @@ export function usePickHandler({
         if (ac.signal.aborted) return;
       }
       markPlaybackTrace(playbackTraceId, "resolve-ready");
-      const hasProxyHeaders = !!r.data.headers && Object.keys(r.data.headers).length > 0;
+      // iPad: MKV / x265 / DTS won't open in the system player. Ask Real-Debrid
+      // for its Apple (HLS, H.264 + AAC) version of the same file instead.
+      let iosTranscoded = false;
+      if (
+        intent !== "download" &&
+        isIosApp() &&
+        pickSettings.rdKey &&
+        iosPlayability(stream) === 0
+      ) {
+        stage = "real-debrid apple stream";
+        const apple = await realDebridAppleStream(pickSettings.rdKey, playUrl, r.data.headers);
+        if (ac.signal.aborted) return;
+        if (apple) {
+          playUrl = apple;
+          iosTranscoded = true;
+        }
+      }
+      const hasProxyHeaders =
+        !iosTranscoded && !!r.data.headers && Object.keys(r.data.headers).length > 0;
       // Native mpv can consume ordinary debrid URLs directly. Keep the local
       // proxy off the startup path unless the source actually requires custom
       // request headers.
@@ -314,6 +337,7 @@ export function usePickHandler({
         }
       }
       const needsPreflight = !(
+        iosTranscoded ||
         intent === "download" ||
         r.via === "p2p" ||
         r.via === "direct" ||
@@ -404,7 +428,7 @@ export function usePickHandler({
             ? `${meta.name} · E${absoluteEpisode}`
             : mediaSubtitle(meta, episode)
           : meta.releaseInfo,
-        notWebReady: r.data.notWebReady,
+        notWebReady: iosTranscoded ? false : r.data.notWebReady,
         subtitles: r.data.subtitles,
         attempt: attempt ?? 0,
         autoFired: autoPickRef.current,

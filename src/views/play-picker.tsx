@@ -500,10 +500,14 @@ export function PlayPicker({
     filterDisabled,
   });
   // iOS: never auto-play a source the iPad's player can't open (MKV, DTS/TrueHD...);
-  // trying them only spins and eventually drops back to the home screen.
+  // trying them only spins and eventually drops back to the home screen. With a
+  // Real-Debrid key they stay in: they play through RD's Apple (HLS) stream.
   const autoCandidates = useMemo(
-    () => (isIosApp() ? autoCandidatesAll.filter((s) => iosPlayability(s) > 0) : autoCandidatesAll),
-    [autoCandidatesAll],
+    () =>
+      isIosApp() && !settings.rdKey
+        ? autoCandidatesAll.filter((s) => iosPlayability(s) > 0)
+        : autoCandidatesAll,
+    [autoCandidatesAll, settings.rdKey],
   );
 
   const autoFiredRef = useRef(false);

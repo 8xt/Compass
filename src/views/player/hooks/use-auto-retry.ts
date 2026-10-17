@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import { isIosApp } from "@/lib/html5-only";
+import { useSettings } from "@/lib/settings";
+import { realDebridAppleStream } from "@/lib/debrid/rd-transcode";
 import {
   getPlaybackBuffered,
   getPlaybackPosition,
@@ -107,6 +109,8 @@ export function useAutoRetry(params: {
   const proxyRetriedRef = useRef(false);
   const transcodeRescueRef = useRef(false);
   const debridFailoverTriedRef = useRef(false);
+  const rdAppleTriedRef = useRef(false);
+  const { settings: retrySettings } = useSettings();
   const p2pCompleteReloadedRef = useRef(false);
   const p2pCompleteReloadedAtRef = useRef(0);
   const liveRetryCountRef = useRef(0);
@@ -123,6 +127,7 @@ export function useAutoRetry(params: {
     proxyRetriedRef.current = false;
     transcodeRescueRef.current = false;
     debridFailoverTriedRef.current = false;
+    rdAppleTriedRef.current = false;
     p2pCompleteReloadedRef.current = false;
     p2pCompleteReloadedAtRef.current = 0;
     liveRetryCountRef.current = 0;
@@ -250,6 +255,29 @@ export function useAutoRetry(params: {
     // iOS: the system player can't decode this file. Reloading, proxying or another
     // debrid serves the same file, and there is no ffmpeg to remux it, so skip
     // straight to the next source (auto-play) or explain why (manual pick).
+    // iPad can't decode this file: if it lives on Real-Debrid, switch to RD's
+    // Apple (HLS, H.264 + AAC) version of it before giving up on the source.
+    if (
+      isIosApp() &&
+      (snap.errorCode === "codec" || snap.errorCode === "decode") &&
+      retrySettings.rdKey &&
+      !rdAppleTriedRef.current
+    ) {
+      rdAppleTriedRef.current = true;
+      const original = src.historyUrl ?? src.url;
+      void realDebridAppleStream(retrySettings.rdKey, original, src.headers)
+        .then((apple) => {
+          if (!current()) return;
+          if (apple) {
+            console.warn("[player] iPad can't decode this file; playing Real-Debrid's Apple stream");
+            void recoveryBridge.load({ url: apple, subtitles: src.subtitles, notWebReady: false });
+          } else {
+            retry();
+          }
+        })
+        .catch(retry);
+      return cancel;
+    }
     if (isIosApp() && (snap.errorCode === "codec" || snap.errorCode === "decode")) {
       if (!instantPlay && !inRoom) {
         setSourceError(
