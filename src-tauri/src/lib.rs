@@ -145,6 +145,8 @@ mod win_graphics;
 mod cf_solver;
 #[cfg(mobile)]
 mod mobile;
+#[cfg(target_os = "ios")]
+mod ios_exception_log;
 // Android P2P policy. torrent_engine picks up engine_dir, new_session and the
 // DHT rate from here behind the same cfg, so leaving this undeclared silently
 // reverts Android to the desktop tuning: payloads into a cacheDir the OS

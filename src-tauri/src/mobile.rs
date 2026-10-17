@@ -75,6 +75,8 @@ async fn ios_media(
 }
 
 pub fn run() {
+    #[cfg(target_os = "ios")]
+    crate::ios_exception_log::install();
     // librqbit speaks rustls, and rustls refuses to work until a process wide
     // crypto provider is installed. Desktop does this too.
     let _ = rustls::crypto::ring::default_provider().install_default();
