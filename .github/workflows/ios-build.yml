@@ -201,6 +201,28 @@ jobs:
           fi
           echo "App bundle: $APP"
           test -d "$APP"
+          EXE="$APP/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")"
+          # Every @rpath library the app needs at launch must be inside the bundle,
+          # or iOS kills the app before it shows anything.
+          VLC_DEVICE="$GITHUB_WORKSPACE/src-tauri/plugins/ios-media/ios/Frameworks/device/MobileVLCKit.framework"
+          if otool -L "$EXE" | grep -q '@rpath/MobileVLCKit.framework'; then
+            mkdir -p "$APP/Frameworks"
+            if [ ! -d "$APP/Frameworks/MobileVLCKit.framework" ]; then
+              cp -R "$VLC_DEVICE" "$APP/Frameworks/"
+              echo "::warning::MobileVLCKit is dynamic and was not embedded; copied it into the app."
+            fi
+            if ! otool -l "$EXE" | grep -A2 LC_RPATH | grep -q '@executable_path/Frameworks'; then
+              install_name_tool -add_rpath @executable_path/Frameworks "$EXE"
+            fi
+          fi
+          MISSING=""
+          for lib in $(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep '^@rpath/'); do
+            rel="${lib#@rpath/}"
+            [ -e "$APP/Frameworks/$rel" ] || MISSING="$MISSING $lib"
+          done
+          DEPS=$(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep -v '^/System/\|^/usr/lib/' | tr '\n' ' ')
+          echo "::notice title=app-deps::non-system deps: ${DEPS:-none} | Frameworks/: $(ls "$APP/Frameworks" 2>/dev/null | tr '\n' ' ') | missing:${MISSING:- none}"
+          [ -z "$MISSING" ] || { echo "::error::app links libraries that are not in the bundle:$MISSING"; exit 1; }
           rm -rf ipa && mkdir -p ipa/Payload
           cp -R "$APP" ipa/Payload/
           (cd ipa && zip -qry ../Compass-unsigned.ipa Payload)
