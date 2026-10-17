@@ -11,7 +11,7 @@ on:
       - ios-port
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ios-build-${{ github.ref }}
@@ -244,3 +244,19 @@ jobs:
           name: Compass-iOS-unsigned-ipa
           path: Compass-unsigned.ipa
           retention-days: 14
+
+      # Direct .ipa download (no zip to extract): a rolling "ios-latest" release.
+      - name: Publish IPA to the ios-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp Compass-unsigned.ipa Compass.ipa
+          NOTES="Built from ${GITHUB_SHA::7} on $(date -u '+%Y-%m-%d %H:%M UTC'). Unsigned: install with Sideloadly, AltStore, SideStore or Feather."
+          if gh release view ios-latest >/dev/null 2>&1; then
+            gh release upload ios-latest Compass.ipa --clobber
+            gh release edit ios-latest --notes "$NOTES"
+          else
+            gh release create ios-latest Compass.ipa --title "Compass iOS (latest build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+          fi
