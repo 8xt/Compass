@@ -266,7 +266,7 @@ export function createHtml5Bridge(): PlayerBridge {
     const early = window.setTimeout(() => {
       if (!video || revision !== mediaRevision || snap.firstFrameReady || iosStallMessage) return;
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth === 0) {
-        iosStallMessage = "iPad's built-in player can't decode this video; switching to the native player.";
+        iosStallMessage = "iPad can't decode this video track (often x265/HEVC 10-bit or MKV inside). Pick another source.";
         refreshSnapshot();
       }
     }, IOS_NO_PICTURE_MS);

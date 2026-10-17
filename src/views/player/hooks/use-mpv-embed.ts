@@ -1,16 +1,14 @@
 import { useEffect } from "react";
 import { modalOverlayClose, modalOverlaySync } from "@/lib/modal-overlay";
 import { isLinuxDesktop, isMacDesktop } from "@/lib/platform";
-import { isIosApp } from "@/lib/html5-only";
 import type { Settings } from "@/lib/settings";
 
 export function useMpvEmbed(params: { engine: "html5" | "mpv"; settings: Settings }) {
   const { engine, settings } = params;
 
   useEffect(() => {
-    const ios = isIosApp();
-    const needsTransparentWebView = isLinuxDesktop() || isMacDesktop() || ios;
-    if (engine !== "mpv" || (!settings.playerMpvEmbed && !ios) || !needsTransparentWebView) return;
+    const needsTransparentWebView = isLinuxDesktop() || isMacDesktop();
+    if (engine !== "mpv" || !settings.playerMpvEmbed || !needsTransparentWebView) return;
     document.documentElement.dataset.mpvEmbed = "1";
     return () => {
       delete document.documentElement.dataset.mpvEmbed;

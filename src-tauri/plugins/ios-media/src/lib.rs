@@ -15,7 +15,7 @@ pub struct IosMedia<R: Runtime>(Option<PluginHandle<R>>);
 
 impl<R: Runtime> IosMedia<R> {
     /// Calls a Swift method on the plugin (`getVolume`, `setVolume`,
-    /// `getBrightness`, `setBrightness`, `playerLoad`, `playerState`, ...) with
+    /// `getBrightness`, `setBrightness`) with
     /// a JSON payload and returns its JSON answer.
     pub fn run(&self, method: &str, payload: serde_json::Value) -> Result<serde_json::Value, String> {
         match &self.0 {

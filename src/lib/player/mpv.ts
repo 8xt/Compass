@@ -1,6 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { isIosApp } from "@/lib/html5-only";
-import { createIosNativeBridge } from "./ios-native";
 import { SubtitlePreparationError, prepareSubtitle } from "@/lib/subtitles/prepare";
 import { subtitleTrackDownloadHeaders } from "@/lib/subtitles/provider-auth";
 import { takePreparedSubtitle } from "@/lib/subtitles/prepared-registry";
@@ -54,10 +52,6 @@ let retainedMpv: RetainedMpv | null = null;
 let retainedMpvRelease: Promise<void> | null = null;
 
 export function probeMpv(): Promise<MpvProbe> {
-  // iOS has no libmpv; its native engine is VLC (see ./ios-native.ts).
-  if (isIosApp()) {
-    return Promise.resolve({ available: true, binary: "vlc", version: "MobileVLCKit", error: null });
-  }
   if (mpvProbePromise) return mpvProbePromise;
   mpvProbePromise = runMpvProbe();
   return mpvProbePromise;
@@ -260,7 +254,6 @@ function normalizeMediaPath(path: string): string {
 }
 
 export function createMpvBridge(mpvOptions?: MpvOptions): PlayerBridge {
-  if (isIosApp()) return createIosNativeBridge();
   let host: HTMLElement | null = null;
   let snap: PlayerSnapshot = initialPlayerSnapshot();
   let profileAf = "";

@@ -5,16 +5,6 @@ import type { MonitorInfo } from "@/lib/monitors";
 import { isLinuxDesktop, isMacDesktop, isWindowsDesktop } from "@/lib/platform";
 import { isIosApp } from "@/lib/html5-only";
 
-/** iOS: sources the system player is known not to open. */
-function iosNeedsNative(url: string | undefined, notWebReady: boolean): boolean {
-  if (notWebReady) return true;
-  if (!url) return false;
-  let path = url.toLowerCase().split("?")[0];
-  try {
-    path = decodeURIComponent(path);
-  } catch {
-    /* keep the raw path */
-  }
   return /\.(mkv|avi|wmv|flv|mk3d|divx|ogm|rmvb)$/.test(path) || /\b(x265|hevc|10bit|dts|truehd)\b/.test(path);
 }
 
@@ -49,8 +39,6 @@ export function embedFlags(
   videoHeight: number,
 ): { mpvEmbedWindowsActive: boolean; stageBg: string } {
   const embedOn = engine === "mpv" && mpvEmbed;
-  // iOS: the native video view is always under the transparent web view.
-  if (engine === "mpv" && isIosApp()) return { mpvEmbedWindowsActive: false, stageBg: "" };
   const mpvEmbedWindowsActive = embedOn && isWindowsDesktop();
   const hasFrame = videoWidth > 0 && videoHeight > 0;
   const macShowing = embedOn && isMacDesktop() && hasFrame;
@@ -92,13 +80,10 @@ export async function pickBridge(
   srcUrl?: string,
 ): Promise<{ bridge: PlayerBridge; engine: "html5" | "mpv" }> {
   if (want === "html5") return { bridge: createHtml5Bridge(), engine: "html5" };
-  if (isIosApp() && want === "auto") {
-    // WebKit's player gives PiP and AirPlay, so it plays what it can; the native
-    // VLC player takes the rest, and use-player-bridge falls back to it when
-    // HTML5 fails to decode a source that looked playable.
-    return iosNeedsNative(srcUrl, notWebReady)
-      ? { bridge: createMpvBridge(mpvOpts), engine: "mpv" }
-      : { bridge: createHtml5Bridge(), engine: "html5" };
+  // iOS has a single engine: the Compass player on WebKit's <video>.
+  if (isIosApp()) {
+    void srcUrl;
+    return { bridge: createHtml5Bridge(), engine: "html5" };
   }
   if (want === "mpv") {
     const probe = await probeMpv();
