@@ -141,7 +141,7 @@ export function usePlayerBridge(params: {
           .filter(Boolean)
           .join("\n"),
         getEmbedRect,
-      });
+      }, src.url);
       if (cancelled) return;
       bridge = choose;
       bridge.attach(host);

@@ -65,6 +65,35 @@ jobs:
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
 
+      - name: Download VLC for iOS (MobileVLCKit)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Resolve the newest MobileVLCKit 3.x from the CocoaPods CDN and fetch its binary.
+          SHARD=$(python3 -c "import hashlib;h=hashlib.md5(b'MobileVLCKit').hexdigest();print(h[0]+'/'+h[1]+'/'+h[2])")
+          FLAT=$(echo "$SHARD" | tr '/' '_')
+          curl -fsSL --retry 5 "https://cdn.cocoapods.org/all_pods_versions_${FLAT}.txt" -o pods.txt
+          VER=$(python3 -c "
+          import re
+          line=[l for l in open('pods.txt').read().splitlines() if l.startswith('MobileVLCKit/')][0]
+          vs=[v for v in line.split('/')[1:] if re.fullmatch(r'3\.\d+\.\d+', v)]
+          vs.sort(key=lambda v: tuple(map(int, v.split('.'))))
+          print(vs[-1])")
+          curl -fsSL --retry 5 "https://cdn.cocoapods.org/Specs/${SHARD}/MobileVLCKit/${VER}/MobileVLCKit.podspec.json" -o vlc.podspec.json
+          URL=$(python3 -c "import json;print(json.load(open('vlc.podspec.json'))['source']['http'])")
+          echo "MobileVLCKit $VER from $URL"
+          curl -fL --retry 5 "$URL" -o vlc.archive
+          mkdir -p vlc && (tar -xf vlc.archive -C vlc 2>/dev/null || unzip -q vlc.archive -d vlc)
+          XC=$(find vlc -name 'MobileVLCKit.xcframework' -type d | head -1)
+          test -n "$XC"
+          DEST=src-tauri/plugins/ios-media/ios/Frameworks
+          mkdir -p "$DEST" && rm -rf "$DEST/MobileVLCKit.xcframework"
+          cp -R "$XC" "$DEST/"
+          ls "$DEST/MobileVLCKit.xcframework"
+          BIN=$(find "$DEST/MobileVLCKit.xcframework" -path '*ios-arm64*' -not -path '*simulator*' -name MobileVLCKit -type f | head -1)
+          file "$BIN"
+          rm -rf vlc vlc.archive
+
       - name: Generate Xcode project
         run: pnpm tauri ios init --ci
 
@@ -99,6 +128,26 @@ jobs:
           # Point the search paths at the default Swift toolchain explicitly.
           sed -i '' 's#\$(TOOLCHAIN_DIR)/usr/lib/swift#$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift#g' project.yml
           grep -n 'LIBRARY_SEARCH_PATHS' project.yml || true
+          # Link MobileVLCKit into the app (the Swift plugin uses it).
+          pip3 install --break-system-packages --quiet pyyaml || pip3 install --quiet pyyaml
+          VLC_XC="$GITHUB_WORKSPACE/src-tauri/plugins/ios-media/ios/Frameworks/MobileVLCKit.xcframework"
+          VLC_BIN=$(find "$VLC_XC" -path '*ios-arm64*' -not -path '*simulator*' -name MobileVLCKit -type f | head -1)
+          if file "$VLC_BIN" | grep -q 'dynamically linked'; then VLC_EMBED=true; else VLC_EMBED=false; fi
+          VLC_XC="$VLC_XC" VLC_EMBED="$VLC_EMBED" python3 - <<'PY'
+          import os, yaml
+          spec = yaml.safe_load(open("project.yml"))
+          name = next(n for n in spec["targets"] if n.endswith("_iOS"))
+          target = spec["targets"][name]
+          deps = target.setdefault("dependencies", [])
+          deps.append({"framework": os.environ["VLC_XC"], "embed": os.environ["VLC_EMBED"] == "true"})
+          for sdk in ["libc++.tbd", "libxml2.tbd", "libz.tbd", "libbz2.tbd", "libiconv.tbd",
+                      "VideoToolbox.framework", "CoreMedia.framework", "CoreVideo.framework",
+                      "AudioToolbox.framework", "AVFoundation.framework", "CoreText.framework",
+                      "MediaPlayer.framework", "OpenGLES.framework", "CFNetwork.framework"]:
+              deps.append({"sdk": sdk})
+          yaml.safe_dump(spec, open("project.yml", "w"), sort_keys=False)
+          print("linked MobileVLCKit into", name, "embed:", os.environ["VLC_EMBED"])
+          PY
           xcodegen generate --spec project.yml
           # Belt and braces: patch the generated pbxproj too.
           PBX="$(ls -d *.xcodeproj)/project.pbxproj"

@@ -7502,3 +7502,10 @@ html[data-os="ios"][data-ios-immersive="1"] #root {
   bottom: 0;
   left: 0;
 }
+
+/* Native (VLC) video under the web view: everything above it must be see-through. */
+html[data-os="ios"][data-mpv-embed="1"],
+html[data-os="ios"][data-mpv-embed="1"] body,
+html[data-os="ios"][data-mpv-embed="1"] #root {
+  background: transparent;
+}

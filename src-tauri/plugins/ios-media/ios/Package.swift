@@ -18,11 +18,16 @@ let package = Package(
     .package(name: "Tauri", path: "../.tauri/tauri-api")
   ],
   targets: [
+    // VLC for iOS. Downloaded by CI (see .github/workflows/ios-build.yml), not committed.
+    .binaryTarget(
+      name: "MobileVLCKit",
+      path: "Frameworks/MobileVLCKit.xcframework"),
     .target(
       name: "tauri-plugin-ios-media",
       dependencies: [
-        .byName(name: "Tauri")
+        .byName(name: "Tauri"),
+        "MobileVLCKit",
       ],
-      path: "Sources")
+      path: "Sources"),
   ]
 )

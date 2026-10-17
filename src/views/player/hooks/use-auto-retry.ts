@@ -250,6 +250,14 @@ export function useAutoRetry(params: {
     // iOS: the system player can't decode this file. Reloading, proxying or another
     // debrid serves the same file, and there is no ffmpeg to remux it, so skip
     // straight to the next source (auto-play) or explain why (manual pick).
+    // HTML5 couldn't decode it: use-player-bridge switches to the native player.
+    if (
+      isIosApp() &&
+      (snap.errorCode === "codec" || snap.errorCode === "decode") &&
+      recoveryBridge.capabilities().engine === "html5"
+    ) {
+      return;
+    }
     if (isIosApp() && snap.errorCode === "codec") {
       if (!instantPlay && !inRoom) {
         setSourceError(

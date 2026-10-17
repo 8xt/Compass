@@ -14,15 +14,13 @@ tauri::ios_plugin_binding!(init_plugin_ios_media);
 pub struct IosMedia<R: Runtime>(Option<PluginHandle<R>>);
 
 impl<R: Runtime> IosMedia<R> {
-    /// Calls a Swift method (`getVolume`, `setVolume`, `getBrightness`,
-    /// `setBrightness`) with `{ "value": f64 }` and returns its JSON answer.
-    pub fn run(&self, method: &str, value: f64) -> Result<serde_json::Value, String> {
+    /// Calls a Swift method on the plugin (`getVolume`, `setVolume`,
+    /// `getBrightness`, `setBrightness`, `playerLoad`, `playerState`, ...) with
+    /// a JSON payload and returns its JSON answer.
+    pub fn run(&self, method: &str, payload: serde_json::Value) -> Result<serde_json::Value, String> {
         match &self.0 {
             Some(handle) => handle
-                .run_mobile_plugin::<serde_json::Value>(
-                    method,
-                    serde_json::json!({ "value": value }),
-                )
+                .run_mobile_plugin::<serde_json::Value>(method, payload)
                 .map_err(|e| e.to_string()),
             None => Ok(serde_json::Value::Null),
         }

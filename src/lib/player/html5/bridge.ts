@@ -251,7 +251,9 @@ export function createHtml5Bridge(): PlayerBridge {
   // iOS: WebKit cannot open some files (MKV, DTS/TrueHD audio...) and often just
   // sits at "nothing loaded" instead of raising an error. Turn that into an error
   // so the player stops spinning and the user can pick another source.
-  const IOS_STALL_MS = 30_000;
+  const IOS_STALL_MS = 15_000;
+  // Audio decodes but no picture (x265 10-bit, MKV inside...): known within seconds.
+  const IOS_NO_PICTURE_MS = 5_000;
   const clearIosStall = () => {
     if (iosStallTimer != null) window.clearTimeout(iosStallTimer);
     iosStallTimer = null;
@@ -261,9 +263,17 @@ export function createHtml5Bridge(): PlayerBridge {
     clearIosStall();
     if (!isIosApp()) return;
     const revision = mediaRevision;
+    const early = window.setTimeout(() => {
+      if (!video || revision !== mediaRevision || snap.firstFrameReady || iosStallMessage) return;
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth === 0) {
+        iosStallMessage = "iPad's built-in player can't decode this video; switching to the native player.";
+        refreshSnapshot();
+      }
+    }, IOS_NO_PICTURE_MS);
     iosStallTimer = window.setTimeout(() => {
       iosStallTimer = null;
-      if (!video || revision !== mediaRevision || snap.firstFrameReady) return;
+      window.clearTimeout(early);
+      if (!video || revision !== mediaRevision || snap.firstFrameReady || iosStallMessage) return;
       const v = video;
       const ext = (url.toLowerCase().split("?")[0].match(/\.([a-z0-9]{2,4})$/) ?? [])[1];
       let host = "";

@@ -56,15 +56,21 @@ async fn ios_media(
     app: tauri::AppHandle,
     action: String,
     value: Option<f64>,
+    args: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     use tauri::Manager;
     let media = app.state::<tauri_plugin_ios_media::IosMedia<tauri::Wry>>();
-    media.run(&action, value.unwrap_or(0.0))
+    let payload = args.unwrap_or_else(|| serde_json::json!({ "value": value.unwrap_or(0.0) }));
+    media.run(&action, payload)
 }
 
 #[cfg(not(target_os = "ios"))]
 #[tauri::command]
-async fn ios_media(_action: String, _value: Option<f64>) -> Result<serde_json::Value, String> {
+async fn ios_media(
+    _action: String,
+    _value: Option<f64>,
+    _args: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
     Ok(serde_json::Value::Null)
 }
 
