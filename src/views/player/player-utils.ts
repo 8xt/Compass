@@ -5,9 +5,6 @@ import type { MonitorInfo } from "@/lib/monitors";
 import { isLinuxDesktop, isMacDesktop, isWindowsDesktop } from "@/lib/platform";
 import { isIosApp } from "@/lib/html5-only";
 
-  return /\.(mkv|avi|wmv|flv|mk3d|divx|ogm|rmvb)$/.test(path) || /\b(x265|hevc|10bit|dts|truehd)\b/.test(path);
-}
-
 export const SYNC_DRIFT_TOLERANCE_S = 0.6;
 export const SYNC_SUPPRESS_MS = 1400;
 export const SYNC_PLAY_LOOKAHEAD_S = 0.4;
