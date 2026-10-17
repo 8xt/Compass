@@ -19,18 +19,12 @@ fn main() {
 /// needs every symbol, so link VLC and its system dependencies here too.
 fn link_vlc() {
     let manifest = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let xcframework = manifest.join("ios/Frameworks/MobileVLCKit.xcframework");
-    println!("cargo:rerun-if-changed={}", xcframework.display());
-    let simulator = std::env::var("TARGET").unwrap_or_default().contains("sim");
-    let slice = std::fs::read_dir(&xcframework)
-        .unwrap_or_else(|_| panic!("{} missing: CI downloads it before the iOS build", xcframework.display()))
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .find(|p| {
-            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            name.starts_with("ios-") && name.contains("arm64") && name.contains("simulator") == simulator
-        })
-        .expect("no matching ios slice in MobileVLCKit.xcframework");
+    // CI copies the device slice of MobileVLCKit.xcframework here.
+    let slice = manifest.join("ios/Frameworks/device");
+    println!("cargo:rerun-if-changed={}", slice.display());
+    if !slice.join("MobileVLCKit.framework").exists() {
+        panic!("{}/MobileVLCKit.framework missing: CI downloads it before the iOS build", slice.display());
+    }
     println!("cargo:rustc-link-search=framework={}", slice.display());
     println!("cargo:rustc-link-lib=framework=MobileVLCKit");
     for lib in ["c++", "xml2", "z", "bz2", "iconv"] {

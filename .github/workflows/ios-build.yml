@@ -92,6 +92,11 @@ jobs:
           ls "$DEST/MobileVLCKit.xcframework"
           BIN=$(find "$DEST/MobileVLCKit.xcframework" -path '*ios-arm64*' -not -path '*simulator*' -name MobileVLCKit -type f | head -1)
           file "$BIN"
+          # Device slice as a plain framework, for the Swift plugin compile and the Rust link.
+          FW=$(dirname "$BIN")
+          mkdir -p "$DEST/device" && rm -rf "$DEST/device/MobileVLCKit.framework"
+          cp -R "$FW" "$DEST/device/"
+          ls "$DEST/device/MobileVLCKit.framework" "$DEST/device/MobileVLCKit.framework/Modules" || true
           rm -rf vlc vlc.archive
 
       - name: Generate Xcode project
