@@ -9,6 +9,9 @@ import { markStreamDead, recordStubEvent } from "@/lib/dead-streams";
 const PREFLIGHT_STUB_TTL_MS = 15 * 60 * 1000;
 const SAME_SOURCE_MAX_RETRIES = 4;
 const SAME_SOURCE_RETRY_DELAY_MS = 1500;
+// Never leave a source spinning on "Connecting" forever. A stuck step (debrid,
+// redirect, proxy, preflight, torrent engine) ends in an error naming the step.
+const RESOLVE_WATCHDOG_MS = 45_000;
 const RETRYABLE_ENGINE_FAILURES = new Set([
   "engine-no-peers",
   "engine-not-ready",
@@ -179,6 +182,16 @@ export function usePickHandler({
         ? undefined
         : beginPlaybackTrace(playbackSourceClass(stream, debrids.length, forceP2p));
     markPlaybackTrace(playbackTraceId, "resolve-start");
+    let stage = "resolve";
+    const sourceKind = stream.url && stream.url !== "#" ? "direct" : stream.infoHash ? (debrids.length ? "debrid" : "torrent") : "other";
+    const watchdog = window.setTimeout(() => {
+      if (opened || ac.signal.aborted) return;
+      console.warn(`[picker] source timed out at "${stage}" (${sourceKind})`);
+      ac.abort();
+      setResolving(null);
+      setFailedStreams((prev) => new Set(prev).add(stream));
+      setResolveError(playError(`timeout at ${stage} (${sourceKind}${forceP2p ? ", p2p" : ""})`));
+    }, RESOLVE_WATCHDOG_MS);
     try {
       if (intent === "download" && seasonEpisodes && seasonEpisodes.length > 0) {
         if (!isDownloadableSeasonPack(stream)) {
@@ -270,6 +283,7 @@ export function usePickHandler({
       }
       debridFailStreakRef.current = 0;
       let playUrl = r.data.url;
+      stage = `redirect via ${r.via}`;
       if (intent !== "download" && !autoPickRef.current && r.via === "direct") {
         playUrl = await resolvePlaybackRedirect({
           url: playUrl,
@@ -284,6 +298,7 @@ export function usePickHandler({
       // proxy off the startup path unless the source actually requires custom
       // request headers.
       if (intent !== "download" && hasProxyHeaders) {
+        stage = `proxy via ${r.via}`;
         try {
           const proxied = await registerStreamProxy(r.data.url, r.data.headers);
           playUrl = proxied.url;
@@ -306,6 +321,7 @@ export function usePickHandler({
         r.readiness?.exactUrlValidated === true
       );
       if (needsPreflight) markPlaybackTrace(playbackTraceId, "preflight-start");
+      stage = needsPreflight ? `preflight via ${r.via}` : `open via ${r.via}`;
       const preflight = needsPreflight
         ? await preflightCheck(playUrl, ac.signal)
         : ({ ok: true } as const);
@@ -447,6 +463,7 @@ export function usePickHandler({
         }
       }
     } finally {
+      window.clearTimeout(watchdog);
       if (proxySessionId && !proxyTransferred) {
         void unregisterStreamProxy(proxySessionId).catch(() => {});
       }
