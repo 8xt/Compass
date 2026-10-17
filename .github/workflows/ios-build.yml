@@ -61,16 +61,42 @@ jobs:
       - name: Generate Xcode project
         run: pnpm tauri ios init --ci
 
+      - name: Disable code signing in the Xcode project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd src-tauri/gen/apple
+          python3 - <<'PY'
+          import pathlib, re
+          # project.yml: tauri may regenerate the project from it during the build.
+          y = pathlib.Path("project.yml")
+          t = y.read_text()
+          flags = ("        CODE_SIGNING_ALLOWED: NO\n"
+                   "        CODE_SIGNING_REQUIRED: NO\n"
+                   "        CODE_SIGN_IDENTITY: \"\"\n"
+                   "        CODE_SIGN_STYLE: Manual\n"
+                   "        DEVELOPMENT_TEAM: \"\"\n")
+          t, n = re.subn(r"(\n      base:\n)", lambda m: m.group(1) + flags, t)
+          print("project.yml base blocks patched:", n)
+          y.write_text(t)
+          PY
+          xcodegen generate --spec project.yml
+          # Belt and braces: patch the generated pbxproj too.
+          PBX="$(ls -d *.xcodeproj)/project.pbxproj"
+          sed -i '' -E \
+            -e 's/CODE_SIGN_IDENTITY(\[[^]]*\])? = [^;]*;/CODE_SIGN_IDENTITY = ""; CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO;/g' \
+            -e 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' \
+            "$PBX"
+          grep -c 'CODE_SIGNING_ALLOWED = NO' "$PBX"
+          grep -n 'base:' -A8 project.yml | head -40
+
       - name: Build unsigned archive
         shell: bash
         run: |
           set -o pipefail
-          # This Tauri CLI has no --no-sign. Arguments after `--` go to xcodebuild, so the
-          # archive is built unsigned. The export step afterwards needs a signing identity
-          # and is expected to fail; only a missing archive counts as a failed build.
-          pnpm tauri ios build --ci --target aarch64 --verbose -- \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" 2>&1 | tee build.log || true
+          # Signing is switched off in the project above. The export step afterwards needs a
+          # signing identity and is expected to fail; only a missing archive is a failure.
+          pnpm tauri ios build --ci --target aarch64 --verbose 2>&1 | tee build.log || true
           if ! find src-tauri/gen/apple/build -maxdepth 2 -name '*.xcarchive' | grep -q .; then
             echo "No .xcarchive produced"
             exit 1
