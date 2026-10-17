@@ -94,6 +94,11 @@ jobs:
           test -x "$TAURI_BIN"
           sed -i '' "s#pnpm tauri ios xcode-script#$TAURI_BIN ios xcode-script#g; s#pnpm run tauri ios xcode-script#$TAURI_BIN ios xcode-script#g" project.yml
           grep -n 'xcode-script' project.yml
+          # Xcode 26 resolves $(TOOLCHAIN_DIR) to the Metal toolchain, so the Swift
+          # compatibility libs (swiftCompatibility56...) are not found at link time.
+          # Point the search paths at the default Swift toolchain explicitly.
+          sed -i '' 's#\$(TOOLCHAIN_DIR)/usr/lib/swift#$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift#g' project.yml
+          grep -n 'LIBRARY_SEARCH_PATHS' project.yml || true
           xcodegen generate --spec project.yml
           # Belt and braces: patch the generated pbxproj too.
           PBX="$(ls -d *.xcodeproj)/project.pbxproj"
