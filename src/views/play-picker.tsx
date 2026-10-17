@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isIosApp } from "@/lib/html5-only";
+import { iosPlayability } from "@/lib/streams/ios-playable";
 import {
   ArrowDownToLine,
   ArrowUp,
@@ -477,7 +479,7 @@ export function PlayPicker({
 
   const kidProfile = useActiveKid();
   const p2pAutoConsent = settings.p2pAutoConsent || !!kidProfile;
-  const autoCandidates = useAutoCandidates({
+  const autoCandidatesAll = useAutoCandidates({
     filteredPicker,
     previousPlayback,
     sourceEntry: lastSeriesSource,
@@ -497,6 +499,12 @@ export function PlayPicker({
     isAnime: isAnimeRequest,
     filterDisabled,
   });
+  // iOS: never auto-play a source the iPad's player can't open (MKV, DTS/TrueHD...);
+  // trying them only spins and eventually drops back to the home screen.
+  const autoCandidates = useMemo(
+    () => (isIosApp() ? autoCandidatesAll.filter((s) => iosPlayability(s) > 0) : autoCandidatesAll),
+    [autoCandidatesAll],
+  );
 
   const autoFiredRef = useRef(false);
   const mainRef = useRef<HTMLElement>(null);

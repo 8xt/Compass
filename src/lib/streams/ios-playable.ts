@@ -7,7 +7,7 @@ import type { DebridSlug, RankedPicker, ScoredStream, Tier } from "./types";
  *   3: MP4/MOV/M4V/WebM/TS/HLS with audio iOS decodes
  *   2: container unknown (no extension), audio fine
  *   1: AV1 (newest iPads only)
- *   0: MKV/AVI/WMV, or DTS / TrueHD audio: will not play
+ *   0: MKV/AVI/WMV, x265 not known to be MP4, or DTS / TrueHD audio: will not play
  */
 export function iosPlayability(s: ScoredStream): number {
   const audio = s.audio?.codec;
@@ -17,6 +17,9 @@ export function iosPlayability(s: ScoredStream): number {
   const container = s.container ?? (ext as ScoredStream["container"]) ?? null;
   if (container === "mkv" || container === "avi" || container === "wmv") return 0;
   if (s.codec === "AV1") return 1;
+  // x265 releases from debrid/torrents are almost always MKV; only HEVC that is
+  // known to be in MP4/MOV plays on iPad.
+  if (s.codec === "HEVC" && container !== "mp4" && container !== "m4v" && container !== "mov") return 0;
   if (
     container === "mp4" ||
     container === "m4v" ||
