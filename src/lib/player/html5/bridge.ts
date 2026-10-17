@@ -57,6 +57,9 @@ export function createHtml5Bridge(): PlayerBridge {
   let lastSecondText = "";
   let activeTraceId: string | null = null;
   let mediaRevision = 0;
+  // iOS stall detection state (see armIosStall). Declared early: refreshSnapshot reads it.
+  let iosStallMessage: string | null = null;
+  let iosStallTimer: number | null = null;
   let autoplayUnmuteTimer: ReturnType<typeof setTimeout> | null = null;
   const mainSubtitleSelection = new SubtitleSelectionCoordinator();
   const secondarySubtitleSelection = new SubtitleSelectionCoordinator();
@@ -117,6 +120,10 @@ export function createHtml5Bridge(): PlayerBridge {
       snap.status = "error";
       snap.errorCode = mapErrorCode(video.error.code);
       snap.errorMessage = video.error.message || null;
+    } else if (iosStallMessage && !snap.firstFrameReady) {
+      snap.status = "error";
+      snap.errorCode = "codec";
+      snap.errorMessage = iosStallMessage;
     } else if (video.ended) {
       snap.status = "ended";
     } else if (!video.paused) {
@@ -239,6 +246,32 @@ export function createHtml5Bridge(): PlayerBridge {
     if (cueTickerRaf == null) return;
     window.cancelAnimationFrame(cueTickerRaf);
     cueTickerRaf = null;
+  };
+
+  // iOS: WebKit cannot open some files (MKV, DTS/TrueHD audio...) and often just
+  // sits at "nothing loaded" instead of raising an error. Turn that into an error
+  // so the player stops spinning and the user can pick another source.
+  const IOS_STALL_MS = 25_000;
+  const clearIosStall = () => {
+    if (iosStallTimer != null) window.clearTimeout(iosStallTimer);
+    iosStallTimer = null;
+    iosStallMessage = null;
+  };
+  const armIosStall = (url: string) => {
+    clearIosStall();
+    if (!isIosApp()) return;
+    const revision = mediaRevision;
+    iosStallTimer = window.setTimeout(() => {
+      iosStallTimer = null;
+      if (!video || revision !== mediaRevision || snap.firstFrameReady) return;
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) return;
+      const ext = (url.toLowerCase().split("?")[0].match(/\.([a-z0-9]{2,4})$/) ?? [])[1];
+      iosStallMessage =
+        ext === "mkv" || ext === "avi"
+          ? `iPad can't play .${ext} files. Pick an MP4 source instead.`
+          : "This source didn't start on iPad (the format may not be supported). Pick another source.";
+      refreshSnapshot();
+    }, IOS_STALL_MS);
   };
 
   // iOS: the slider mirrors the system volume, including the hardware buttons.
@@ -601,6 +634,7 @@ export function createHtml5Bridge(): PlayerBridge {
         video.src = src.url;
       }
       markPlaybackTrace(activeTraceId, "loadfile-accepted");
+      armIosStall(src.url);
       disposeSubtitleTracks();
       activeSubId = null;
       secondarySubId = null;
@@ -1145,6 +1179,7 @@ export function createHtml5Bridge(): PlayerBridge {
     },
     destroy() {
       stopIosVolumeSync();
+      clearIosStall();
       mediaRevision += 1;
       mainSubtitleSelection.invalidate();
       secondarySubtitleSelection.invalidate();

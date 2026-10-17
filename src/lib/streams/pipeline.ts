@@ -17,6 +17,7 @@ import { applyTrust, type Rejection, type TrustOptions } from "./trust";
 import { computeCorpusStats, rankAndPick, scoreStream, type ScoreOptions } from "./scoring";
 import type { ParsedStream, RankedPicker, Stream } from "./types";
 import { isHtml5OnlyRuntime } from "@/lib/html5-only";
+import { iosPlayableFirst } from "./ios-playable";
 
 const PREFER_AAC = isHtml5OnlyRuntime();
 
@@ -237,7 +238,10 @@ export async function runPipeline(
     );
     const fin = finalizeWithRescue(picker, rejected, input.trust ?? {}, input.score);
     return {
-      picker: applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+      picker: iosPlayableFirst(
+        applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+        input.score.activeDebrids,
+      ),
       rejected: [...fin.rejected, ...extraRejected],
       raw: { addon: addonStreams, library },
       debridErrors: debridErrors.length > 0 ? debridErrors : undefined,
@@ -407,7 +411,10 @@ export async function runPipeline(
     const fin = finalizeWithRescue(core.picker, core.rejected, input.trust ?? {}, input.score);
     restoreCacheVerification(fin.picker);
     return {
-      picker: applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+      picker: iosPlayableFirst(
+        applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+        input.score.activeDebrids,
+      ),
       rejected: [...fin.rejected, ...animeRejected],
       raw: { addon: addonStreams, library },
       debridErrors: debridErrors.length > 0 ? debridErrors : undefined,
@@ -440,7 +447,10 @@ export async function runPipeline(
   const fin = finalizeWithRescue(picker, rejected, input.trust ?? {}, input.score);
   restoreCacheVerification(fin.picker);
   return {
-    picker: applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+    picker: iosPlayableFirst(
+        applyStreamPriority(fin.picker, priorityActive, input.score.activeDebrids),
+        input.score.activeDebrids,
+      ),
     rejected: [...fin.rejected, ...animeRejected],
     raw: { addon: addonStreams, library },
     debridErrors: debridErrors.length > 0 ? debridErrors : undefined,
