@@ -151,11 +151,11 @@ jobs:
           # Every @rpath library the app needs at launch must be inside the bundle,
           # or iOS kills the app before it shows anything.
           MISSING=""
-          for lib in $(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep '^@rpath/'); do
+          for lib in $(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep '^@rpath/' || true); do
             rel="${lib#@rpath/}"
             [ -e "$APP/Frameworks/$rel" ] || MISSING="$MISSING $lib"
           done
-          DEPS=$(otool -L "$EXE" | awk 'NR>1 {print $1}' | grep -v '^/System/\|^/usr/lib/' | tr '\n' ' ')
+          DEPS=$(otool -L "$EXE" | awk 'NR>1 {print $1}' | { grep -v '^/System/\|^/usr/lib/' || true; } | tr '\n' ' ')
           echo "::notice title=app-deps::non-system deps: ${DEPS:-none} | Frameworks/: $(ls "$APP/Frameworks" 2>/dev/null | tr '\n' ' ') | missing:${MISSING:- none}"
           [ -z "$MISSING" ] || { echo "::error::app links libraries that are not in the bundle:$MISSING"; exit 1; }
           rm -rf ipa && mkdir -p ipa/Payload
