@@ -1,8 +1,10 @@
 import { useSettings } from "@/lib/settings";
+import { isDesktopShell } from "@/lib/html5-only";
 import { startResize, useMaximized, type ResizeDir } from "@/lib/window";
 import { useWindowFullscreen } from "@/lib/use-window-fullscreen";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 const EDGES: Array<{ dir: ResizeDir; cls: string }> = [
   { dir: "North", cls: "inset-x-0 top-0 h-2 cursor-ns-resize" },

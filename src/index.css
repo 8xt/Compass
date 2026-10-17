@@ -7440,3 +7440,57 @@ button.hset-rail-me:hover,
     height: 55%;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   iOS / iPadOS app (data-os="ios" is set by applyOsDataset).
+   The WebView spans the whole screen (viewport-fit=cover), so keep the app
+   inside the safe area: below the status bar, above the home indicator, and
+   clear of the camera housing in landscape. #root is fixed + transformed so
+   it is also the containing block for the app's own position:fixed layers.
+   --------------------------------------------------------------------------- */
+html[data-os="ios"],
+html[data-os="ios"] body {
+  background: var(--color-canvas);
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+html[data-os="ios"] #root {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  right: env(safe-area-inset-right, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: env(safe-area-inset-left, 0px);
+  height: auto;
+  transform: translateZ(0);
+  background: var(--color-canvas);
+}
+
+/* Touch: no grey flash on tap, no callout menu on long-press, no double-tap zoom. */
+html[data-os="ios"] * {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+html[data-os="ios"] body {
+  touch-action: manipulation;
+}
+html[data-os="ios"] input,
+html[data-os="ios"] textarea,
+html[data-os="ios"] [contenteditable="true"] {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* No desktop scrollbars; iOS shows its own scroll indicators. */
+html[data-os="ios"] * {
+  scrollbar-width: none;
+}
+html[data-os="ios"] *::-webkit-scrollbar {
+  display: none;
+}
+
+/* Desktop-only window chrome hooks. */
+html[data-os="ios"] [data-tauri-drag-region] {
+  -webkit-app-region: no-drag;
+}

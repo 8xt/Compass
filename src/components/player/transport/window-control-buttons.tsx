@@ -1,10 +1,12 @@
 import { Copy, Minus, Square, X } from "lucide-react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { toggleWindowFullscreen } from "@/lib/fullscreen-state";
 import { useSettings } from "@/lib/settings";
 import { useWindowFullscreen } from "@/lib/use-window-fullscreen";
 import { close, minimize, toggleMaximize, useMaximized } from "@/lib/window";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function WindowControlButtons({ t }: { t: (key: string) => string }) {
   const { settings } = useSettings();

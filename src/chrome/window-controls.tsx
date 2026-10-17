@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { close, minimize, toggleMaximize, useMaximized } from "@/lib/window";
 import { useSettings } from "@/lib/settings";
 import { useT } from "@/lib/i18n";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function WindowControls() {
   const { settings } = useSettings();

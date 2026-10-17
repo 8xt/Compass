@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { usePreviewNavCustomization } from "@/lib/theme-preview";
 import { Monitor } from "lucide-react";
 import { useContextMenu } from "@/lib/context-menu";
@@ -27,7 +28,8 @@ import { OverflowNav, type NavEntry } from "@/chrome/nav-overflow";
 import { useAvailableNavItems, applyNavCustomization, type NavItem } from "@/chrome/nav-items";
 import { useBigPictureEntry } from "@/chrome/use-big-picture-entry";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function RoyalTopbar() {
   const { view, setView, chromeHidden } = useView();

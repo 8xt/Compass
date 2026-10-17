@@ -1,4 +1,5 @@
 import { Search } from "@/components/icons/search-icon";
+import { isDesktopShell } from "@/lib/html5-only";
 import { useEffect, useRef, type ReactNode } from "react";
 import { close, minimize, toggleMaximize, useMaximized } from "@/lib/window";
 import { osClass } from "@/lib/platform";
@@ -8,7 +9,8 @@ import { useSettings } from "@/lib/settings";
 import { useT } from "@/lib/i18n";
 import { HybridMenuBar } from "./hybrid-menu-bar";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function HybridTitleBar({ suppressed = false }: { suppressed?: boolean }) {
   const { settings } = useSettings();

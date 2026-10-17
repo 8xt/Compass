@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { usePreviewNavCustomization } from "@/lib/theme-preview";
 import { Monitor } from "lucide-react";
 import { useContextMenu } from "@/lib/context-menu";
@@ -22,7 +23,8 @@ import { NotificationCenter } from "@/components/notification-center/notificatio
 import { AccountMenu } from "@/chrome/account-menu/account-menu";
 import { useBigPictureEntry } from "@/chrome/use-big-picture-entry";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function CinematicOverlay() {
   const { view, setView, chromeHidden } = useView();

@@ -1,4 +1,5 @@
 import { ArrowLeft, Monitor } from "lucide-react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { useContextMenu } from "@/lib/context-menu";
 import { Search } from "@/components/icons/search-icon";
 import { CompassMark } from "@/components/icons/compass-mark";
@@ -14,7 +15,8 @@ import { getThemeById } from "@/lib/theme";
 import { useView } from "@/lib/view";
 import { close, minimize, toggleMaximize } from "@/lib/window";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 export function FloatingTop() {
   const { view, setView, chromeHidden, canGoBack, goBack, topKind, exitPlayback } = useView();

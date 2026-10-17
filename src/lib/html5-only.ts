@@ -12,3 +12,16 @@ export function isHtml5OnlyRuntime(): boolean {
   // iPadOS reports a desktop Safari UA; touch points tell it apart from a Mac.
   return /Macintosh/i.test(ua) && (navigator.maxTouchPoints ?? 0) > 1;
 }
+
+/** iOS app build (Tauri on iPhone / iPad). */
+export function isIosApp(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && isHtml5OnlyRuntime();
+}
+
+/**
+ * True only for the desktop Tauri shell: a resizable OS window with minimize,
+ * maximize, close, drag regions and resize edges. False on iOS and the web.
+ */
+export function isDesktopShell(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && !isHtml5OnlyRuntime();
+}

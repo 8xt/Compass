@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import { isDesktopShell } from "@/lib/html5-only";
 import { WindowControlButton as Control, WindowControlGlyph } from "./window-control-button";
 import { Search } from "@/components/icons/search-icon";
 import { UiIcon } from "@/components/ui-icon";
@@ -32,7 +33,8 @@ import { useView } from "@/lib/view";
 import { useWindowFullscreen } from "@/lib/use-window-fullscreen";
 import { close, minimize, toggleMaximize, useMaximized } from "@/lib/window";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 function PresenceAvatar({ name, src, color }: { name: string; src: string | null; color: string }) {
   const [failed, setFailed] = useState(false);

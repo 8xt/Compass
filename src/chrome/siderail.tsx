@@ -1,4 +1,5 @@
 import { usePreviewNavCustomization } from "@/lib/theme-preview";
+import { isDesktopShell } from "@/lib/html5-only";
 import { useContextMenu } from "@/lib/context-menu";
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -25,7 +26,8 @@ import { useView, type View } from "@/lib/view";
 import { ParentalPinModal } from "@/components/parental-pin-modal";
 import { close, minimize, toggleMaximize } from "@/lib/window";
 
-const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+// Desktop window chrome (min/max/close, drag, resize). Hidden on iOS.
+const IS_TAURI = isDesktopShell();
 
 const PRIMARY_IDS = new Set([
   "home",

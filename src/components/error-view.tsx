@@ -5,6 +5,7 @@ import { submitErrorReport } from "@/lib/bug-report";
 import { loadStartupCrashReport, startupCrashToCompassError } from "@/lib/startup-crash";
 import { isStaleTauriListenerError } from "@/lib/tauri-unlisten";
 import { t as translate, useT } from "@/lib/i18n";
+import { isIosApp } from "@/lib/html5-only";
 
 export type CompassError = {
   code: string;
@@ -20,9 +21,28 @@ export function showCompassError(error: CompassError): void {
 
 const APP_VERSION = __APP_VERSION__;
 
+// iOS ships a smaller native layer than desktop (no mpv, window management,
+// updater, sidecars...). Calls into those reject with Tauri's "not found",
+// "not allowed" or "unsupported" errors. They are expected there, not crashes.
+const IOS_EXPECTED_NATIVE = [
+  "not found",
+  "not allowed",
+  "not supported",
+  "unsupported",
+  "not implemented",
+  "not available",
+  "plugin",
+  "command",
+  "window",
+  "permission",
+  "ipc",
+  "invoke",
+];
+
 function isNoisyError(reason: unknown, message?: string): boolean {
   const r = reason as { name?: string; message?: string } | undefined;
-  const m = ((message || r?.message) ?? "").toLowerCase();
+  const m = ((message || r?.message) ?? (typeof reason === "string" ? reason : "")).toLowerCase();
+  if (isIosApp() && IOS_EXPECTED_NATIVE.some((needle) => m.includes(needle))) return true;
   if (isStaleTauriListenerError(reason ?? message)) return true;
   if (m.includes("resizeobserver loop")) return true;
   if (m.includes("non-error promise rejection")) return true;
@@ -72,6 +92,12 @@ export function ErrorView() {
       });
     };
     const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      // A rejected promise is never fatal. On iOS nearly all of them are calls into
+      // desktop-only native features, so log instead of covering the whole screen.
+      if (isIosApp()) {
+        console.warn("[compass] unhandled rejection", e.reason);
+        return;
+      }
       const reason = e.reason as
         | { name?: string; message?: string; stack?: string }
         | string

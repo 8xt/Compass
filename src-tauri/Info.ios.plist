@@ -14,6 +14,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Dark app: light status bar text, controlled app-wide. -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<!-- Full-screen iPad app (no Split View / Slide Over requirements). -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Compass connects to Jellyfin, Plex, Emby and other media servers on your network.</string>
 	<key>UIBackgroundModes</key>

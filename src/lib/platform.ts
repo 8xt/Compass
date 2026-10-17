@@ -30,7 +30,16 @@ export function osClass(): OsClass {
 
 export function applyOsDataset(): void {
   if (typeof document === "undefined") return;
-  document.documentElement.dataset.os = osClass();
+  const os = osClass();
+  document.documentElement.dataset.os = os;
+  if (os === "ios") {
+    // App, not a web page: no pinch/double-tap zoom of the whole UI.
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (meta) {
+      meta.content =
+        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
+    }
+  }
 }
 
 export function isLinuxDesktop(): boolean {
