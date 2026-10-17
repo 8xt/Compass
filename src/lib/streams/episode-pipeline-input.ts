@@ -1,4 +1,5 @@
 import { addonBasesForOrigin, type Addon } from "@/lib/addons";
+import { isHtml5OnlyRuntime } from "@/lib/html5-only";
 import { isAddonNativeMeta, type Meta } from "@/lib/cinemeta";
 import type { DebridStore } from "@/lib/debrid/types";
 import { readPlayback } from "@/lib/playback-history";
@@ -209,8 +210,7 @@ export function buildEpisodePipelineInput(params: {
       runtimeMinutes: runtimeMinutes(meta.runtime),
       inTheaters: meta.inTheaters === true,
       bandwidthMbps: settings.bandwidthMbps > 0 ? settings.bandwidthMbps : undefined,
-      preferSingleAudioTrack:
-        !("__TAURI_INTERNALS__" in window) || settings.playerEngine === "html5",
+      preferSingleAudioTrack: isHtml5OnlyRuntime() || settings.playerEngine === "html5",
       preferAddonId: meta.addonOrigin?.id,
       preferredReleaseGroup: prevGroup,
       respectAddonOrder: settings.streamSort === "addon",

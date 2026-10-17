@@ -16,8 +16,9 @@ import { parseStream } from "./parser";
 import { applyTrust, type Rejection, type TrustOptions } from "./trust";
 import { computeCorpusStats, rankAndPick, scoreStream, type ScoreOptions } from "./scoring";
 import type { ParsedStream, RankedPicker, Stream } from "./types";
+import { isHtml5OnlyRuntime } from "@/lib/html5-only";
 
-const PREFER_AAC = typeof window !== "undefined" && !("__TAURI_INTERNALS__" in window);
+const PREFER_AAC = isHtml5OnlyRuntime();
 
 const GIB = 1024 ** 3;
 const RESCUABLE_REASON_RX = /^(fresh-cinema-fake|new-release-stub)/;

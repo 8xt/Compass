@@ -1,0 +1,87 @@
+name: ios-build
+
+# Builds an UNSIGNED .ipa for sideloading (Sideloadly / AltStore / SideStore sign it
+# with your own Apple ID when installing). Run it from the Actions tab, or push to
+# the ios-port branch.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ios-port
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=6144
+  COMPASS_CAPSTAN_OPTIONAL: "1"
+
+jobs:
+  ipa:
+    name: iOS unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Install iOS tooling
+        run: brew install xcodegen
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+          key: ios
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Xcode project
+        run: pnpm tauri ios init --ci
+
+      - name: Build unsigned archive
+        run: pnpm tauri ios build --ci --no-sign --target aarch64 --verbose
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          ARCHIVE="$(find src-tauri/gen/apple/build -maxdepth 2 -name '*.xcarchive' | head -1)"
+          if [ -n "$ARCHIVE" ]; then
+            APP="$(find "$ARCHIVE/Products/Applications" -maxdepth 1 -name '*.app' | head -1)"
+          else
+            APP="$(find src-tauri/gen/apple/build -name '*.app' -path '*iphoneos*' | head -1)"
+          fi
+          echo "App bundle: $APP"
+          test -d "$APP"
+          rm -rf ipa && mkdir -p ipa/Payload
+          cp -R "$APP" ipa/Payload/
+          (cd ipa && zip -qry ../Compass-unsigned.ipa Payload)
+          ls -lh Compass-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Compass-iOS-unsigned-ipa
+          path: Compass-unsigned.ipa
+          retention-days: 14

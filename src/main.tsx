@@ -208,7 +208,9 @@ async function mount() {
   ) {
     returnPreferencesReady = completeBetaReturnPreferences(__APP_VERSION__);
   }
-  await Promise.all([
+  // allSettled, not all: on iOS some desktop-only native commands are absent, and one
+  // rejected boot task must not leave the window blank.
+  await Promise.allSettled([
     loadSecrets(),
     hydrateCustomThemes().catch(() => {}),
     ensureUiLocale(getUiLanguage()),

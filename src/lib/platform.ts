@@ -8,7 +8,7 @@ export function isWeb(): boolean {
   return typeof window !== "undefined" && !("__TAURI_INTERNALS__" in window);
 }
 
-export type OsClass = "linux" | "macos" | "windows" | "android" | "web";
+export type OsClass = "linux" | "macos" | "windows" | "android" | "ios" | "web";
 
 function detectOs(): OsClass {
   if (!isTauri()) return "web";
@@ -17,6 +17,7 @@ function detectOs(): OsClass {
   if (platform === "macos") return "macos";
   if (platform === "windows") return "windows";
   if (platform === "android") return "android";
+  if (platform === "ios") return "ios";
   return "web";
 }
 
@@ -46,6 +47,10 @@ export function isWindowsDesktop(): boolean {
 
 export function isAndroid(): boolean {
   return osClass() === "android";
+}
+
+export function isIos(): boolean {
+  return osClass() === "ios";
 }
 
 // Every other platform answers from plugin-os, which reports only "android" for

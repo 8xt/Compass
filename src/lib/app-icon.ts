@@ -18,7 +18,7 @@ export type ApplyIconResult = { ok: true } | { ok: false; reason: string };
 
 export async function applyAppIcon(dataUrl: string): Promise<ApplyIconResult> {
   if (!isTauri()) return { ok: false, reason: "not running in the desktop app" };
-  if (osClass() === "android" || osClass() === "web") {
+  if (osClass() === "android" || osClass() === "ios" || osClass() === "web") {
     return { ok: false, reason: "app icons are only supported on desktop" };
   }
   const bytes = dataUrl ? dataUrlToBytes(dataUrl) : null;
