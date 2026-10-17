@@ -74,6 +74,7 @@ import { SeekStepBtn } from "./seek-step-btn";
 import { EpisodeNavBtn } from "./episode-nav-btn";
 import { TimeStart, TimeEnd } from "./time-display";
 import { WindowControlButtons } from "./window-control-buttons";
+import { iosControlOverride } from "./ios-controls";
 import { IdentifySongButton } from "@/components/identify-song-button";
 
 export type ControlContext = {
@@ -162,6 +163,8 @@ export type ControlContext = {
 
 export function renderControl(id: PlayerControlId, ctx: ControlContext): ReactNode {
   const t = ctx.t ?? translate;
+  const ios = iosControlOverride(id, t);
+  if (ios !== undefined) return ios;
   const state = getControlState(id, ctx);
   const iconUrl = getCustomIcon(ctx.customIcons, id, state);
   if (

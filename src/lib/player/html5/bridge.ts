@@ -1,4 +1,6 @@
 import Hls from "hls.js";
+import { isIosApp } from "@/lib/html5-only";
+import { iosGetVolume, iosSetVolume } from "@/lib/ios-media";
 import mpegts from "mpegts.js";
 import {
   initialPlayerSnapshot,
@@ -237,6 +239,30 @@ export function createHtml5Bridge(): PlayerBridge {
     if (cueTickerRaf == null) return;
     window.cancelAnimationFrame(cueTickerRaf);
     cueTickerRaf = null;
+  };
+
+  // iOS: the slider mirrors the system volume, including the hardware buttons.
+  let iosVolumeTimer: number | null = null;
+  let iosVolumeSetAt = 0;
+  const syncIosVolume = () => {
+    // Don't fight a gesture or drag that is setting the volume right now.
+    if (Date.now() - iosVolumeSetAt < 800) return;
+    void iosGetVolume().then((v) => {
+      if (v == null || Date.now() - iosVolumeSetAt < 800) return;
+      if (Math.abs(v - pendingVolume) < 0.01) return;
+      pendingVolume = v;
+      snap.volume = v;
+      emit();
+    });
+  };
+  const startIosVolumeSync = () => {
+    stopIosVolumeSync();
+    syncIosVolume();
+    iosVolumeTimer = window.setInterval(syncIosVolume, 1000);
+  };
+  const stopIosVolumeSync = () => {
+    if (iosVolumeTimer != null) window.clearInterval(iosVolumeTimer);
+    iosVolumeTimer = null;
   };
 
   const applyVolume = (v: number) => {
@@ -484,6 +510,7 @@ export function createHtml5Bridge(): PlayerBridge {
       h.appendChild(v);
       video = v;
       bind();
+      if (isIosApp()) startIosVolumeSync();
     },
     detach() {
       mediaRevision += 1;
@@ -716,6 +743,11 @@ export function createHtml5Bridge(): PlayerBridge {
       if (!video) return;
       const clamped = Math.max(0, Math.min(6, v));
       applyVolume(clamped);
+      if (isIosApp()) {
+        // video.volume is read-only on iOS: drive the system volume instead.
+        iosVolumeSetAt = Date.now();
+        iosSetVolume(Math.min(1, clamped));
+      }
       if (clamped > 0) video.muted = false;
       snap.volume = clamped;
       emit();
@@ -1112,6 +1144,7 @@ export function createHtml5Bridge(): PlayerBridge {
       };
     },
     destroy() {
+      stopIosVolumeSync();
       mediaRevision += 1;
       mainSubtitleSelection.invalidate();
       secondarySubtitleSelection.invalidate();

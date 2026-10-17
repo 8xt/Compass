@@ -47,6 +47,27 @@ fn lan_ip() -> Option<String> {
     None
 }
 
+/// iOS player controls the WebView cannot reach: system volume and screen
+/// brightness. `action` is one of getVolume, setVolume, getBrightness, setBrightness.
+/// Async so the call into Swift never blocks the main thread it dispatches to.
+#[cfg(target_os = "ios")]
+#[tauri::command]
+async fn ios_media(
+    app: tauri::AppHandle,
+    action: String,
+    value: Option<f64>,
+) -> Result<serde_json::Value, String> {
+    use tauri::Manager;
+    let media = app.state::<tauri_plugin_ios_media::IosMedia<tauri::Wry>>();
+    media.run(&action, value.unwrap_or(0.0))
+}
+
+#[cfg(not(target_os = "ios"))]
+#[tauri::command]
+async fn ios_media(_action: String, _value: Option<f64>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::Value::Null)
+}
+
 pub fn run() {
     // librqbit speaks rustls, and rustls refuses to work until a process wide
     // crypto provider is installed. Desktop does this too.
@@ -59,14 +80,18 @@ pub fn run() {
             stream_proxy::ProxyState::placeholder()
         });
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_deep_link::init());
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_ios_media::init());
+
+    builder
         .manage(proxy_state)
         .manage(download::DownloadState::new())
         .setup(|app| {
@@ -79,6 +104,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             lan_ip,
+            ios_media,
             crate::save_text_file,
             crate::compass_take_pending_file,
             crate::compass_set_webview_memory_low,

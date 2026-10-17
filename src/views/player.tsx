@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isIosApp } from "@/lib/html5-only";
 import { SportsDockControls } from "./sports/dock-controls";
 import { useDockDrag, type DockSpot } from "./sports/use-dock-drag";
 import { readEmbedRect } from "@/lib/player/embed-rect";
@@ -1268,8 +1269,28 @@ function NativePlayerView({ src }: { src: PlayerSrc }) {
   useEffect(() => {
     volumeRef.current = snap.volume;
   }, [snap.volume]);
+  // iPad: edge-to-edge video while the player is open (see index.css).
+  useEffect(() => {
+    if (!isIosApp()) return;
+    const root = document.documentElement;
+    root.dataset.iosImmersive = "1";
+    return () => {
+      delete root.dataset.iosImmersive;
+    };
+  }, []);
+
   const onVolumeWheel = useCallback(
-    (deltaY: number) => {
+    (deltaY: number, precise?: boolean) => {
+      if (precise) {
+        // Trackpad / touch on iPad: proportional, silent, no notch-sized jumps.
+        const next = Math.min(1, Math.max(0, volumeRef.current - deltaY * 0.004));
+        if (Math.abs(next - volumeRef.current) < 0.001) return;
+        volumeRef.current = next;
+        bridgeRef.current?.setVolume(next);
+        if (next > 0) bridgeRef.current?.setMuted(false);
+        showVolumeFeedback(next, false);
+        return;
+      }
       const dir = deltaY < 0 ? 1 : -1;
       const boost = !isKid && bridgeRef.current?.capabilities().engine === "mpv";
       const max = boost ? Math.max(1, Math.min(6, settings.volumeBoostMax || 2)) : 1;

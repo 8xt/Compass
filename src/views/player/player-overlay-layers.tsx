@@ -64,7 +64,7 @@ export type PlayerOverlayLayersProps = {
   pickAnotherOrGuide: () => void;
   playPauseToggle: () => void;
   toggleFullscreen: () => void;
-  onVolumeWheel: (deltaY: number) => void;
+  onVolumeWheel: (deltaY: number, precise?: boolean) => void;
   onVolumeFeedback: (volume: number, muted: boolean) => void;
   isLocalSrc: boolean;
   sourceFailed: boolean;

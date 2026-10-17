@@ -7,6 +7,7 @@ import { isWindowsDesktop } from "@/lib/platform";
 import { isAssTrack, isImageSubTrack } from "@/lib/player/sub-format";
 import { clearImportedSubs } from "@/lib/player/imported-subs";
 import { readPlayerVolume } from "@/lib/player-volume";
+import { isIosApp } from "@/lib/html5-only";
 import { setPlayerActions } from "@/lib/player-actions";
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import { useSettings } from "@/lib/settings";
@@ -142,7 +143,8 @@ export function usePlayerMedia(params: {
     const b = bridgeRef.current;
     if (!b) return;
     const saved = readPlayerVolume();
-    b.setVolume(saved.volume);
+    // iOS: volume is the system volume; never jump it to a level saved earlier.
+    if (!isIosApp()) b.setVolume(saved.volume);
     b.setMuted(saved.muted);
     volumeRestoredRef.current = true;
   }, [bridgeReady, bridgeKey, snap.status]);

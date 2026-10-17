@@ -1,3 +1,4 @@
+import { iosControlOverride } from "./ios-controls";
 import {
   Camera,
   ChevronLeft,
@@ -171,6 +172,8 @@ export function RenderedStremioControl({
   ctx: StremioRenderCtx;
 }) {
   const tr = useT();
+  const ios = iosControlOverride(id, tr);
+  if (ios !== undefined) return <>{ios}</>;
   const state = getStremioState(id, ctx);
   const iconUrl = getCustomIcon(ctx.customIcons, id, state);
   if (iconUrl) {

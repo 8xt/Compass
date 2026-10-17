@@ -19,6 +19,9 @@
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!-- Media app: full screen, no status bar over the video or the UI. -->
+	<key>UIStatusBarHidden</key>
+	<true/>
 	<!-- Full-screen iPad app (no Split View / Slide Over requirements). -->
 	<key>UIRequiresFullScreen</key>
 	<true/>

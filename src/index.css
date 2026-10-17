@@ -7494,3 +7494,11 @@ html[data-os="ios"] *::-webkit-scrollbar {
 html[data-os="ios"] [data-tauri-drag-region] {
   -webkit-app-region: no-drag;
 }
+
+/* While the player is open the video goes edge to edge, like the system player. */
+html[data-os="ios"][data-ios-immersive="1"] #root {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
