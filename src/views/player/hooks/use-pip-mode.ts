@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { isHtml5OnlyRuntime } from "@/lib/html5-only";
 import type { PlayerBridge } from "@/lib/player/bridge";
 import { useSettings } from "@/lib/settings";
 import { makeSafeTauriUnlisten } from "@/lib/tauri-unlisten";
@@ -118,7 +119,9 @@ export function usePipMode(params: {
 
   const togglePipMode = useCallback(async () => {
     const isTauri = "__TAURI__" in window || "__TAURI_INTERNALS__" in window;
-    if (!isTauri) {
+    // iOS: go straight to the system (AVKit) PiP. It must start inside the tap that
+    // asked for it, so no awaiting a native command that iOS does not have first.
+    if (!isTauri || isHtml5OnlyRuntime()) {
       bridgeRef.current?.requestPiP();
       return;
     }
