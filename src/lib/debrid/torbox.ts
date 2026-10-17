@@ -537,7 +537,7 @@ export async function torboxAppleStream(
       const res = await fetch(`${BASE}${path}`, { headers: auth, signal: ac });
       const body = (await res.json().catch(() => null)) as TbStreamEnvelope<T> | null;
       if (!res.ok || !body || body.success === false) {
-        dwarn("[torbox] stream api", path.split("?")[0], res.status, body?.detail ?? body?.error);
+        console.warn(`[torbox] ${path.split("?")[0]} -> ${res.status} ${body?.detail ?? body?.error ?? ""}`);
         return null;
       }
       return body;
@@ -574,6 +574,7 @@ export async function torboxAppleStream(
     const file = torrent ? pickTbFile(torrent.files ?? [], opts.fileIdx ?? undefined, opts.hint) : null;
     if (torrent && file?.id != null) ids = { torrentId: torrent.id, fileId: file.id };
   }
+  console.warn(`[torbox] ids ${ids ? `torrent ${ids.torrentId} file ${ids.fileId}` : "not found (no requestdl link, hash not in account)"}`);
   if (!ids) return null;
 
   // 2) Ask TorBox for the transcoded HLS stream.

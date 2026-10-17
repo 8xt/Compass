@@ -289,6 +289,9 @@ export function usePickHandler({
       debridFailStreakRef.current = 0;
       let playUrl = r.data.url;
       stage = `redirect via ${r.via}`;
+      console.warn(
+        `[picker] open via ${r.via}: ${(r.data.filename ?? stream.behaviorHints?.filename ?? stream.parsedTitle ?? stream.title ?? "?").toString().slice(0, 70)} | ipad=${isIosApp() ? iosPlayability(stream) : "-"}`,
+      );
       if (intent !== "download" && !autoPickRef.current && r.via === "direct") {
         playUrl = await resolvePlaybackRedirect({
           url: playUrl,

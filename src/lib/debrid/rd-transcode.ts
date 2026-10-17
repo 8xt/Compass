@@ -71,8 +71,14 @@ export async function realDebridAppleStream(
   let id = rdDownloadId(url);
   if (!id) {
     const resolved = await finalUrl(url, headers);
+    try {
+      console.warn(`[rd-transcode] link resolves to ${resolved ? new URL(resolved).host : "nothing"}`);
+    } catch {
+      /* not a URL */
+    }
     id = resolved ? rdDownloadId(resolved) : null;
   }
+  console.warn(`[rd-transcode] download id ${id ?? "not found (not a Real-Debrid link)"}`);
   if (!id) return null;
   try {
     const res = await nativeFetch(`${API}/streaming/transcode/${id}`, {

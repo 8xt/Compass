@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IosDebugPanel } from "@/components/ios-debug-panel";
 import { CompassLoader } from "@/components/compass-loader";
 import { CustomArtwork } from "@/components/custom-artwork";
 import type { PlayerSnapshot } from "@/lib/player/bridge";
@@ -121,6 +122,7 @@ export function CinematicPlayerLoader({
       } ${showing ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
     >
       <Topbar connecting />
+      {showing && <IosDebugPanel />}
       {backdrop && (
         <img
           src={backdrop}

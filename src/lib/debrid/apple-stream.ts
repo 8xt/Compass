@@ -24,12 +24,23 @@ export async function iosAppleStream(
   },
   signal?: AbortSignal,
 ): Promise<string | null> {
+  console.warn(
+    `[ios] apple stream: tb=${!!keys.tbKey} rd=${!!keys.rdKey} hash=${source.infoHash ? "yes" : "no"} url=${source.url ? source.url.slice(0, 70) : "none"}`,
+  );
   if (keys.tbKey) {
-    const tb = await torboxAppleStream(keys.tbKey, source, signal).catch(() => null);
+    const tb = await torboxAppleStream(keys.tbKey, source, signal).catch((e) => {
+      console.warn("[torbox] apple stream threw", e);
+      return null;
+    });
+    console.warn(`[torbox] apple stream -> ${tb ? "HLS ok" : "none"}`);
     if (tb) return tb;
   }
   if (keys.rdKey && source.url) {
-    const rd = await realDebridAppleStream(keys.rdKey, source.url, source.headers).catch(() => null);
+    const rd = await realDebridAppleStream(keys.rdKey, source.url, source.headers).catch((e) => {
+      console.warn("[rd-transcode] threw", e);
+      return null;
+    });
+    console.warn(`[rd-transcode] apple stream -> ${rd ? "HLS ok" : "none"}`);
     if (rd) return rd;
   }
   return null;

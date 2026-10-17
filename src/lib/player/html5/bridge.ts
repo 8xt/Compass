@@ -267,6 +267,7 @@ export function createHtml5Bridge(): PlayerBridge {
       if (!video || revision !== mediaRevision || snap.firstFrameReady || iosStallMessage) return;
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth === 0) {
         iosStallMessage = "iPad can't decode this video track (often x265/HEVC 10-bit or MKV inside). Pick another source.";
+        console.warn(`[html5] no picture after 5s (ready ${video.readyState})`);
         refreshSnapshot();
       }
     }, IOS_NO_PICTURE_MS);
@@ -293,6 +294,7 @@ export function createHtml5Bridge(): PlayerBridge {
       } else {
         iosStallMessage = `This source didn't start on iPad. Pick another source. ${diag}`;
       }
+      console.warn(`[html5] stall: ${iosStallMessage}`);
       refreshSnapshot();
     }, IOS_STALL_MS);
   };
@@ -438,6 +440,7 @@ export function createHtml5Bridge(): PlayerBridge {
     updateMediaSessionPosition();
   };
   const onError = () => {
+    if (video?.error) console.warn(`[html5] media error ${video.error.code}: ${video.error.message || "(no message)"}`);
     refreshSnapshot();
   };
   const onLoaded = () => {
@@ -657,6 +660,14 @@ export function createHtml5Bridge(): PlayerBridge {
         video.src = src.url;
       }
       markPlaybackTrace(activeTraceId, "loadfile-accepted");
+      try {
+        const u = new URL(src.url);
+        console.warn(
+          `[html5] load ${u.host}${u.pathname.slice(0, 60)} hls=${!!hls} ts=${!!tsPlayer} notWebReady=${!!src.notWebReady}`,
+        );
+      } catch {
+        console.warn(`[html5] load ${src.url.slice(0, 80)}`);
+      }
       armIosStall(src.url);
       disposeSubtitleTracks();
       activeSubId = null;
