@@ -20,6 +20,13 @@ concurrency:
 env:
   NODE_OPTIONS: --max-old-space-size=6144
   COMPASS_CAPSTAN_OPTIONAL: "1"
+  CI: "true"
+  # Xcode's "Build Rust Code" phase runs pnpm in its own environment; without these,
+  # pnpm decides node_modules is stale and aborts trying to purge it.
+  pnpm_config_verify_deps_before_run: "false"
+  npm_config_verify_deps_before_run: "false"
+  pnpm_config_confirm_modules_purge: "false"
+  npm_config_confirm_modules_purge: "false"
 
 jobs:
   ipa:
