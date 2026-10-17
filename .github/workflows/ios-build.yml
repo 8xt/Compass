@@ -65,7 +65,16 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          pnpm tauri ios build --ci --no-sign --target aarch64 --verbose 2>&1 | tee build.log
+          # This Tauri CLI has no --no-sign. Arguments after `--` go to xcodebuild, so the
+          # archive is built unsigned. The export step afterwards needs a signing identity
+          # and is expected to fail; only a missing archive counts as a failed build.
+          pnpm tauri ios build --ci --target aarch64 --verbose -- \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" 2>&1 | tee build.log || true
+          if ! find src-tauri/gen/apple/build -maxdepth 2 -name '*.xcarchive' | grep -q .; then
+            echo "No .xcarchive produced"
+            exit 1
+          fi
 
       - name: Report build errors
         if: failure()
