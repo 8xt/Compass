@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { useSettings } from "@/lib/settings";
 import { isIosApp } from "@/lib/html5-only";
 import { iosPlayability } from "@/lib/streams/ios-playable";
-import { realDebridAppleStream } from "@/lib/debrid/rd-transcode";
+import { hasAppleStreamKey, iosAppleStream } from "@/lib/debrid/apple-stream";
 import type { Meta } from "@/lib/cinemeta";
 import type { DebridStore } from "@/lib/debrid/types";
 import { invalidatePreparedDebridLink } from "@/lib/debrid/playback-preparation";
@@ -298,17 +298,27 @@ export function usePickHandler({
         if (ac.signal.aborted) return;
       }
       markPlaybackTrace(playbackTraceId, "resolve-ready");
-      // iPad: MKV / x265 / DTS won't open in the system player. Ask Real-Debrid
-      // for its Apple (HLS, H.264 + AAC) version of the same file instead.
+      // iPad: MKV / x265 / DTS won't open in the system player. Ask the debrid
+      // service (TorBox web streaming / Real-Debrid Apple) for an HLS version.
       let iosTranscoded = false;
       if (
         intent !== "download" &&
         isIosApp() &&
-        pickSettings.rdKey &&
+        hasAppleStreamKey(pickSettings) &&
         iosPlayability(stream) === 0
       ) {
-        stage = "real-debrid apple stream";
-        const apple = await realDebridAppleStream(pickSettings.rdKey, playUrl, r.data.headers);
+        stage = "debrid apple stream";
+        const apple = await iosAppleStream(
+          pickSettings,
+          {
+            url: r.data.url,
+            headers: r.data.headers,
+            infoHash: stream.infoHash ?? null,
+            fileIdx: r.data.fileIdx ?? stream.fileIdx ?? null,
+            hint,
+          },
+          ac.signal,
+        );
         if (ac.signal.aborted) return;
         if (apple) {
           playUrl = apple;

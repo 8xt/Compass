@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import { isIosApp } from "@/lib/html5-only";
 import { useSettings } from "@/lib/settings";
-import { realDebridAppleStream } from "@/lib/debrid/rd-transcode";
+import { hasAppleStreamKey, iosAppleStream } from "@/lib/debrid/apple-stream";
 import {
   getPlaybackBuffered,
   getPlaybackPosition,
@@ -255,21 +255,28 @@ export function useAutoRetry(params: {
     // iOS: the system player can't decode this file. Reloading, proxying or another
     // debrid serves the same file, and there is no ffmpeg to remux it, so skip
     // straight to the next source (auto-play) or explain why (manual pick).
-    // iPad can't decode this file: if it lives on Real-Debrid, switch to RD's
-    // Apple (HLS, H.264 + AAC) version of it before giving up on the source.
+    // iPad can't decode this file: switch to the debrid service's HLS version of
+    // it (TorBox web streaming / Real-Debrid Apple) before giving up on it.
     if (
       isIosApp() &&
       (snap.errorCode === "codec" || snap.errorCode === "decode") &&
-      retrySettings.rdKey &&
+      hasAppleStreamKey(retrySettings) &&
       !rdAppleTriedRef.current
     ) {
       rdAppleTriedRef.current = true;
-      const original = src.historyUrl ?? src.url;
-      void realDebridAppleStream(retrySettings.rdKey, original, src.headers)
+      void iosAppleStream(retrySettings, {
+        url: src.historyUrl ?? src.url,
+        headers: src.headers,
+        infoHash: src.streamRef?.infoHash ?? null,
+        fileIdx: src.streamRef?.fileIdx ?? null,
+        hint: src.episode
+          ? { season: src.episode.season ?? null, episode: src.episode.episode ?? null }
+          : undefined,
+      })
         .then((apple) => {
           if (!current()) return;
           if (apple) {
-            console.warn("[player] iPad can't decode this file; playing Real-Debrid's Apple stream");
+            console.warn("[player] iPad can't decode this file; playing the debrid HLS stream");
             void recoveryBridge.load({ url: apple, subtitles: src.subtitles, notWebReady: false });
           } else {
             retry();

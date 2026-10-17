@@ -459,3 +459,132 @@ type TbError = {
   detail?: string;
   error?: string;
 };
+
+// ---------------------------------------------------------------------------
+// TorBox web streaming for iOS.
+//
+// TorBox can transcode a file it holds into an HLS stream that browsers and
+// iOS play natively (`stream/createstream` + `stream/getstreamdata`). That makes
+// MKV / x265 / DTS sources playable on iPad without a native player. The
+// account must have TorBox web streaming (it answers PLAN_RESTRICTED_FEATURE
+// otherwise, and the caller falls back).
+// ---------------------------------------------------------------------------
+
+type TbStreamEnvelope<T> = { success?: boolean; detail?: string; error?: string; data?: T };
+
+type TorboxIds = { torrentId: number; fileId: number };
+
+/** torrent_id / file_id from a TorBox requestdl URL anywhere in a redirect chain. */
+function idsFromUrl(url: string): TorboxIds | null {
+  try {
+    const u = new URL(url);
+    const t = Number(u.searchParams.get("torrent_id"));
+    const f = Number(u.searchParams.get("file_id"));
+    return Number.isFinite(t) && t > 0 && Number.isFinite(f) && f >= 0
+      ? { torrentId: t, fileId: f }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Walks redirects one hop at a time (AIOStreams -> TorBox requestdl -> CDN). */
+async function idsFromRedirects(url: string, headers?: Record<string, string>): Promise<TorboxIds | null> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  let current = url;
+  for (let hop = 0; hop < 8; hop++) {
+    const direct = idsFromUrl(current);
+    if (direct) return direct;
+    let res: { status: number; headers?: Record<string, string>; url?: string | null };
+    try {
+      res = await invoke("compass_fetch", {
+        args: {
+          url: current,
+          method: "HEAD",
+          headers: headers ?? {},
+          timeoutMs: 10000,
+          followRedirects: false,
+          maxResponseBytes: 64 * 1024,
+        },
+      });
+    } catch {
+      return null;
+    }
+    const h = res.headers ?? {};
+    const location = h.location ?? h.Location;
+    if (res.status < 300 || res.status >= 400 || !location) return null;
+    current = new URL(location, current).toString();
+  }
+  return idsFromUrl(current);
+}
+
+export async function torboxAppleStream(
+  apiKey: string,
+  opts: {
+    url?: string | null;
+    headers?: Record<string, string>;
+    infoHash?: string | null;
+    fileIdx?: number | null;
+    hint?: EpisodeHint;
+  },
+  signal?: AbortSignal,
+): Promise<string | null> {
+  if (!apiKey) return null;
+  const ac = signal ?? new AbortController().signal;
+  const auth = { Authorization: `Bearer ${apiKey}`, Accept: "application/json" };
+  const getJson = async <T>(path: string): Promise<TbStreamEnvelope<T> | null> => {
+    try {
+      const res = await fetch(`${BASE}${path}`, { headers: auth, signal: ac });
+      const body = (await res.json().catch(() => null)) as TbStreamEnvelope<T> | null;
+      if (!res.ok || !body || body.success === false) {
+        dwarn("[torbox] stream api", path.split("?")[0], res.status, body?.detail ?? body?.error);
+        return null;
+      }
+      return body;
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) Which torrent/file in the account is this?
+  let ids = opts.url ? await idsFromRedirects(opts.url, opts.headers) : null;
+  if (!ids && opts.infoHash) {
+    const hash = opts.infoHash.toLowerCase();
+    const list = await getJson<TbTorrent[]>("/torrents/mylist?bypass_cache=true");
+    let torrent = (list?.data ?? []).find((t) => (t.hash ?? "").toLowerCase() === hash) ?? null;
+    if (!torrent) {
+      try {
+        const form = new URLSearchParams({ magnet: magnetFromHash(hash), allow_zip: "false" });
+        const res = await fetch(`${BASE}/torrents/createtorrent`, {
+          method: "POST",
+          headers: { ...auth, "Content-Type": "application/x-www-form-urlencoded" },
+          body: form.toString(),
+          signal: ac,
+        });
+        const created = (await res.json().catch(() => null)) as TbEnvelope<TbCreate> | null;
+        const id = created?.data?.torrent_id;
+        if (id) {
+          const one = await getJson<TbTorrent>(`/torrents/mylist?id=${id}&bypass_cache=true`);
+          torrent = one?.data ?? null;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    const file = torrent ? pickTbFile(torrent.files ?? [], opts.fileIdx ?? undefined, opts.hint) : null;
+    if (torrent && file?.id != null) ids = { torrentId: torrent.id, fileId: file.id };
+  }
+  if (!ids) return null;
+
+  // 2) Ask TorBox for the transcoded HLS stream.
+  const created = await getJson<{ presigned_token?: string; presignedToken?: string }>(
+    `/stream/createstream?id=${ids.torrentId}&file_id=${ids.fileId}&type=torrent`,
+  );
+  const token = created?.data?.presigned_token ?? created?.data?.presignedToken;
+  if (!token) return null;
+  const data = await getJson<{ hls_url?: string }>(
+    `/stream/getstreamdata?presigned_token=${encodeURIComponent(token)}&token=${encodeURIComponent(apiKey)}`,
+  );
+  const hls = data?.data?.hls_url;
+  return typeof hls === "string" && /^https?:\/\//i.test(hls) ? hls : null;
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isIosApp } from "@/lib/html5-only";
 import { iosPlayability } from "@/lib/streams/ios-playable";
+import { hasAppleStreamKey } from "@/lib/debrid/apple-stream";
 import {
   ArrowDownToLine,
   ArrowUp,
@@ -504,10 +505,10 @@ export function PlayPicker({
   // Real-Debrid key they stay in: they play through RD's Apple (HLS) stream.
   const autoCandidates = useMemo(
     () =>
-      isIosApp() && !settings.rdKey
+      isIosApp() && !hasAppleStreamKey(settings)
         ? autoCandidatesAll.filter((s) => iosPlayability(s) > 0)
         : autoCandidatesAll,
-    [autoCandidatesAll, settings.rdKey],
+    [autoCandidatesAll, settings.rdKey, settings.tbKey],
   );
 
   const autoFiredRef = useRef(false);
