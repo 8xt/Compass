@@ -9,3 +9,5 @@ minimumReleaseAgeExclude:
 onlyBuiltDependencies:
   - classic-level
   - esbuild
+verifyDepsBeforeRun: false
+confirmModulesPurge: false
