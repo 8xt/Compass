@@ -34,7 +34,7 @@ export function installIosDebugLog(): void {
     console[level] = (...args: unknown[]) => {
       original(...args);
       const text = stringify(args);
-      if (!RELEVANT.test(text)) return;
+      if (!RELEVANT.test(text) || text.includes("Plugin window not initialized")) return;
       lines.push({ at: Date.now(), level, text });
       if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
       for (const l of listeners) l();

@@ -27,7 +27,14 @@ function flush(kind: Kind) {
   const value = pending[kind];
   pending[kind] = null;
   if (value == null) return;
-  void call(`set${kind}`, value);
+  void call(`set${kind}`, value).then((applied) => {
+    if (applied != null) {
+      last[kind] = applied;
+      if (Math.abs(applied - value) > 0.05) {
+        console.warn(`[ios] ${kind.toLowerCase()} set ${value.toFixed(2)} but iOS reports ${applied.toFixed(2)}`);
+      }
+    }
+  });
 }
 
 function set(kind: Kind, value: number) {

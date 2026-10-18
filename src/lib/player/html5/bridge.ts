@@ -302,12 +302,17 @@ export function createHtml5Bridge(): PlayerBridge {
   // iOS: the slider mirrors the system volume, including the hardware buttons.
   let iosVolumeTimer: number | null = null;
   let iosVolumeSetAt = 0;
+  let lastNativeVolume: number | null = null;
   const syncIosVolume = () => {
     // Don't fight a gesture or drag that is setting the volume right now.
     if (Date.now() - iosVolumeSetAt < 800) return;
     void iosGetVolume().then((v) => {
       if (v == null || Date.now() - iosVolumeSetAt < 800) return;
-      if (Math.abs(v - pendingVolume) < 0.01) return;
+      // Follow only real changes of the system volume (hardware buttons, Control
+      // Center). A reading that hasn't moved must never pull the slider back.
+      const changed = lastNativeVolume == null || Math.abs(v - lastNativeVolume) >= 0.01;
+      lastNativeVolume = v;
+      if (!changed || Math.abs(v - pendingVolume) < 0.01) return;
       pendingVolume = v;
       snap.volume = v;
       emit();

@@ -304,6 +304,9 @@ export function usePickHandler({
       // iPad: MKV / x265 / DTS won't open in the system player. Ask the debrid
       // service (TorBox web streaming / Real-Debrid Apple) for an HLS version.
       let iosTranscoded = false;
+      if (intent !== "download" && isIosApp() && iosPlayability(stream) === 0 && !hasAppleStreamKey(pickSettings)) {
+        console.warn("[picker] iPad can't play this file and no TorBox / Real-Debrid key is saved in Compass settings");
+      }
       if (
         intent !== "download" &&
         isIosApp() &&

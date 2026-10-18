@@ -41,9 +41,12 @@ export function iosPlayability(s: ScoredStream): number {
 export function iosPlayableFirst(picker: RankedPicker, activeDebrids: DebridSlug[]): RankedPicker {
   if (!isIosApp() || picker.all.length === 0) return picker;
   const score = new Map(picker.all.map((s) => [s, iosPlayability(s)] as const));
+  // 4K starts far slower on iPad (and its screen is below 4K): within the same
+  // playability group, 1080p and below go first.
+  const heavy = (s: ScoredStream) => (s.resolution === "4K" ? 1 : 0);
   const all = picker.all
     .map((s, i) => ({ s, i }))
-    .sort((a, b) => score.get(b.s)! - score.get(a.s)! || a.i - b.i)
+    .sort((a, b) => score.get(b.s)! - score.get(a.s)! || heavy(a.s) - heavy(b.s) || a.i - b.i)
     .map(({ s }) => s);
   const byTier: Partial<Record<Tier, ScoredStream>> = {};
   const cachedFirst = all
@@ -51,8 +54,9 @@ export function iosPlayableFirst(picker: RankedPicker, activeDebrids: DebridSlug
     .sort((a, b) => b.c - a.c || a.i - b.i)
     .map(({ s }) => s);
   for (const s of cachedFirst) if (!byTier[s.tier]) byTier[s.tier] = s;
-  const best = all.find((s) => isCached(s, activeDebrids)) ?? null;
+  const best = all.find((s) => isCached(s, activeDebrids)) ?? all[0] ?? null;
+  const rank = (s: ScoredStream) => score.get(s)! * 2 - heavy(s);
   const primary =
-    picker.primary && best && score.get(picker.primary)! >= score.get(best)! ? picker.primary : best;
+    picker.primary && best && rank(picker.primary) >= rank(best) ? picker.primary : best;
   return { ...picker, all, byTier, primary };
 }

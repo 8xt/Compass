@@ -503,13 +503,18 @@ export function PlayPicker({
   // iOS: never auto-play a source the iPad's player can't open (MKV, DTS/TrueHD...);
   // trying them only spins and eventually drops back to the home screen. With a
   // Real-Debrid key they stay in: they play through RD's Apple (HLS) stream.
-  const autoCandidates = useMemo(
-    () =>
-      isIosApp() && !hasAppleStreamKey(settings)
-        ? autoCandidatesAll.filter((s) => iosPlayability(s) > 0)
-        : autoCandidatesAll,
-    [autoCandidatesAll, settings.rdKey, settings.tbKey],
-  );
+  const autoCandidates = useMemo(() => {
+    if (!isIosApp()) return autoCandidatesAll;
+    const pool = hasAppleStreamKey(settings)
+      ? autoCandidatesAll
+      : autoCandidatesAll.filter((s) => iosPlayability(s) > 0);
+    // Direct-play sources first, then 1080p before 4K (4K starts slowly on iPad).
+    return pool
+      .map((s, i) => ({ s, i, p: iosPlayability(s), h: s.resolution === "4K" ? 1 : 0 }))
+      .sort((a, b) => b.p - a.p || a.h - b.h || a.i - b.i)
+      .map(({ s }) => s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCandidatesAll, settings.rdKey, settings.tbKey]);
 
   const autoFiredRef = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
