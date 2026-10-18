@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
-import { isIosApp } from "@/lib/html5-only";
+import { IOS_NATIVE_BUILD, isIosApp } from "@/lib/html5-only";
 import { useSettings } from "@/lib/settings";
 import { hasAppleStreamKey, iosAppleStream } from "@/lib/debrid/apple-stream";
 import {
@@ -255,6 +255,14 @@ export function useAutoRetry(params: {
     // iOS: the system player can't decode this file. Reloading, proxying or another
     // debrid serves the same file, and there is no ffmpeg to remux it, so skip
     // straight to the next source (auto-play) or explain why (manual pick).
+    // VLC build: use-player-bridge switches to the native player for this.
+    if (
+      IOS_NATIVE_BUILD &&
+      (snap.errorCode === "codec" || snap.errorCode === "decode") &&
+      recoveryBridge.capabilities().engine === "html5"
+    ) {
+      return;
+    }
     // iPad can't decode this file: switch to the debrid service's HLS version of
     // it (TorBox web streaming / Real-Debrid Apple) before giving up on it.
     if (

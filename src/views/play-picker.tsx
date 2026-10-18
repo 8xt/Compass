@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isIosApp } from "@/lib/html5-only";
+import { IOS_NATIVE_BUILD, isIosApp } from "@/lib/html5-only";
 import { iosPlayability } from "@/lib/streams/ios-playable";
 import { hasAppleStreamKey } from "@/lib/debrid/apple-stream";
 import {
@@ -505,12 +505,12 @@ export function PlayPicker({
   // Real-Debrid key they stay in: they play through RD's Apple (HLS) stream.
   const autoCandidates = useMemo(() => {
     if (!isIosApp()) return autoCandidatesAll;
-    const pool = hasAppleStreamKey(settings)
+    const pool = IOS_NATIVE_BUILD || hasAppleStreamKey(settings)
       ? autoCandidatesAll
       : autoCandidatesAll.filter((s) => iosPlayability(s) > 0);
     // Direct-play sources first, then 1080p before 4K (4K starts slowly on iPad).
     return pool
-      .map((s, i) => ({ s, i, p: iosPlayability(s), h: s.resolution === "4K" ? 1 : 0 }))
+      .map((s, i) => ({ s, i, p: IOS_NATIVE_BUILD ? 3 : iosPlayability(s), h: s.resolution === "4K" ? 1 : 0 }))
       .sort((a, b) => b.p - a.p || a.h - b.h || a.i - b.i)
       .map(({ s }) => s);
     // eslint-disable-next-line react-hooks/exhaustive-deps

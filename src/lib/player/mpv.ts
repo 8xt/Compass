@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isIosApp } from "@/lib/html5-only";
+import { createIosNativeBridge, iosNativeAvailable } from "./ios-native";
 import { SubtitlePreparationError, prepareSubtitle } from "@/lib/subtitles/prepare";
 import { subtitleTrackDownloadHeaders } from "@/lib/subtitles/provider-auth";
 import { takePreparedSubtitle } from "@/lib/subtitles/prepared-registry";
@@ -52,6 +54,15 @@ let retainedMpv: RetainedMpv | null = null;
 let retainedMpvRelease: Promise<void> | null = null;
 
 export function probeMpv(): Promise<MpvProbe> {
+  // iOS has no libmpv; the "Compass VLC" build has a native VLC player instead.
+  if (isIosApp()) {
+    return iosNativeAvailable().then((available) => ({
+      available,
+      binary: available ? "vlc" : null,
+      version: available ? "MobileVLCKit" : null,
+      error: available ? null : "no native player in this build",
+    }));
+  }
   if (mpvProbePromise) return mpvProbePromise;
   mpvProbePromise = runMpvProbe();
   return mpvProbePromise;
@@ -254,6 +265,7 @@ function normalizeMediaPath(path: string): string {
 }
 
 export function createMpvBridge(mpvOptions?: MpvOptions): PlayerBridge {
+  if (isIosApp()) return createIosNativeBridge();
   let host: HTMLElement | null = null;
   let snap: PlayerSnapshot = initialPlayerSnapshot();
   let profileAf = "";

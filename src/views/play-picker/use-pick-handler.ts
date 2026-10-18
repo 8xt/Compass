@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useSettings } from "@/lib/settings";
-import { isIosApp } from "@/lib/html5-only";
+import { IOS_NATIVE_BUILD, isIosApp } from "@/lib/html5-only";
 import { iosPlayability } from "@/lib/streams/ios-playable";
 import { hasAppleStreamKey, iosAppleStream } from "@/lib/debrid/apple-stream";
 import type { Meta } from "@/lib/cinemeta";
@@ -304,12 +304,13 @@ export function usePickHandler({
       // iPad: MKV / x265 / DTS won't open in the system player. Ask the debrid
       // service (TorBox web streaming / Real-Debrid Apple) for an HLS version.
       let iosTranscoded = false;
-      if (intent !== "download" && isIosApp() && iosPlayability(stream) === 0 && !hasAppleStreamKey(pickSettings)) {
+      if (intent !== "download" && isIosApp() && !IOS_NATIVE_BUILD && iosPlayability(stream) === 0 && !hasAppleStreamKey(pickSettings)) {
         console.warn("[picker] iPad can't play this file and no TorBox / Real-Debrid key is saved in Compass settings");
       }
       if (
         intent !== "download" &&
         isIosApp() &&
+        !IOS_NATIVE_BUILD &&
         hasAppleStreamKey(pickSettings) &&
         iosPlayability(stream) === 0
       ) {

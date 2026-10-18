@@ -5,6 +5,22 @@ import type { MonitorInfo } from "@/lib/monitors";
 import { isLinuxDesktop, isMacDesktop, isWindowsDesktop } from "@/lib/platform";
 import { isIosApp } from "@/lib/html5-only";
 
+/** iOS: sources the system player is known not to open. */
+function iosNeedsNative(url: string | undefined, notWebReady: boolean): boolean {
+  if (notWebReady) return true;
+  if (!url) return false;
+  let path = url.toLowerCase().split("?")[0];
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    /* keep the raw path */
+  }
+  return (
+    /\.(mkv|avi|wmv|flv|mk3d|divx|ogm|rmvb)$/.test(path) ||
+    /\b(x265|hevc|h265|10bit|dts|truehd|atmos)\b/.test(path)
+  );
+}
+
 export const SYNC_DRIFT_TOLERANCE_S = 0.6;
 export const SYNC_SUPPRESS_MS = 1400;
 export const SYNC_PLAY_LOOKAHEAD_S = 0.4;
@@ -36,6 +52,8 @@ export function embedFlags(
   videoHeight: number,
 ): { mpvEmbedWindowsActive: boolean; stageBg: string } {
   const embedOn = engine === "mpv" && mpvEmbed;
+  // iOS: the native video view is always under the transparent web view.
+  if (engine === "mpv" && isIosApp()) return { mpvEmbedWindowsActive: false, stageBg: "" };
   const mpvEmbedWindowsActive = embedOn && isWindowsDesktop();
   const hasFrame = videoWidth > 0 && videoHeight > 0;
   const macShowing = embedOn && isMacDesktop() && hasFrame;
@@ -77,9 +95,13 @@ export async function pickBridge(
   srcUrl?: string,
 ): Promise<{ bridge: PlayerBridge; engine: "html5" | "mpv" }> {
   if (want === "html5") return { bridge: createHtml5Bridge(), engine: "html5" };
-  // iOS has a single engine: the Compass player on WebKit's <video>.
-  if (isIosApp()) {
-    void srcUrl;
+  // iOS: WebKit's player (PiP, AirPlay) for what it can open; the native VLC
+  // player ("Compass VLC" build) for the rest. use-player-bridge also falls back
+  // to native when HTML5 fails to decode a source that looked playable.
+  if (isIosApp() && want === "auto") {
+    if (iosNeedsNative(srcUrl, notWebReady) && (await probeMpv()).available) {
+      return { bridge: createMpvBridge(mpvOpts), engine: "mpv" };
+    }
     return { bridge: createHtml5Bridge(), engine: "html5" };
   }
   if (want === "mpv") {

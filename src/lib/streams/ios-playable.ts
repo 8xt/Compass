@@ -1,4 +1,4 @@
-import { isIosApp } from "@/lib/html5-only";
+import { IOS_NATIVE_BUILD, isIosApp } from "@/lib/html5-only";
 import { isCached } from "./cached";
 import type { DebridSlug, RankedPicker, ScoredStream, Tier } from "./types";
 
@@ -40,7 +40,9 @@ export function iosPlayability(s: ScoredStream): number {
  */
 export function iosPlayableFirst(picker: RankedPicker, activeDebrids: DebridSlug[]): RankedPicker {
   if (!isIosApp() || picker.all.length === 0) return picker;
-  const score = new Map(picker.all.map((s) => [s, iosPlayability(s)] as const));
+  const score = new Map(
+    picker.all.map((s) => [s, IOS_NATIVE_BUILD ? 3 : iosPlayability(s)] as const),
+  );
   // 4K starts far slower on iPad (and its screen is below 4K): within the same
   // playability group, 1080p and below go first.
   const heavy = (s: ScoredStream) => (s.resolution === "4K" ? 1 : 0);

@@ -30,9 +30,18 @@ env:
 
 jobs:
   ipa:
-    name: iOS unsigned IPA
+    name: iOS unsigned IPA (${{ matrix.variant }})
     runs-on: macos-15
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        # standard: Compass.ipa (WebKit player only).
+        # vlc: Compass-VLC.ipa, a separate app (own bundle id) that also carries VLC
+        #      for MKV / x265 / DTS / TrueHD / Atmos. VLC is loaded at runtime only.
+        variant: [standard, vlc]
+    env:
+      VITE_IOS_NATIVE_PLAYER: ${{ matrix.variant == 'vlc' && '1' || '0' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +62,7 @@ jobs:
         with:
           workspaces: |
             src-tauri
-          key: ios
+          key: ios-${{ matrix.variant }}
 
       - uses: pnpm/action-setup@v4
 
@@ -64,6 +73,49 @@ jobs:
 
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
+
+      - name: Make the VLC build a separate app
+        if: matrix.variant == 'vlc'
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, plistlib
+          c = pathlib.Path("src-tauri/tauri.ios.conf.json")
+          j = json.loads(c.read_text())
+          j["identifier"] = "com.eightxt.compass.vlc"
+          c.write_text(json.dumps(j, indent=2))
+          p = pathlib.Path("src-tauri/Info.ios.plist")
+          d = plistlib.loads(p.read_bytes())
+          d["CFBundleDisplayName"] = "Compass VLC"
+          p.write_bytes(plistlib.dumps(d))
+          print("identifier", j["identifier"])
+          PY
+
+      - name: Download VLC for iOS (MobileVLCKit)
+        if: matrix.variant == 'vlc'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHARD=$(python3 -c "import hashlib;h=hashlib.md5(b'MobileVLCKit').hexdigest();print(h[0]+'/'+h[1]+'/'+h[2])")
+          FLAT=$(echo "$SHARD" | tr '/' '_')
+          curl -fsSL --retry 5 "https://cdn.cocoapods.org/all_pods_versions_${FLAT}.txt" -o pods.txt
+          VER=$(python3 -c "
+          import re
+          line=[l for l in open('pods.txt').read().splitlines() if l.startswith('MobileVLCKit/')][0]
+          vs=[v for v in line.split('/')[1:] if re.fullmatch(r'3\.\d+\.\d+', v)]
+          vs.sort(key=lambda v: tuple(map(int, v.split('.'))))
+          print(vs[-1])")
+          curl -fsSL --retry 5 "https://cdn.cocoapods.org/Specs/${SHARD}/MobileVLCKit/${VER}/MobileVLCKit.podspec.json" -o vlc.podspec.json
+          URL=$(python3 -c "import json;print(json.load(open('vlc.podspec.json'))['source']['http'])")
+          echo "MobileVLCKit $VER from $URL"
+          curl -fL --retry 5 "$URL" -o vlc.archive
+          mkdir -p vlc && (tar -xf vlc.archive -C vlc 2>/dev/null || unzip -q vlc.archive -d vlc)
+          XC=$(find vlc -name 'MobileVLCKit.xcframework' -type d | head -1)
+          BIN=$(find "$XC" -path '*ios-arm64*' -not -path '*simulator*' -name MobileVLCKit -type f | head -1)
+          file "$BIN"
+          mkdir -p "$RUNNER_TEMP/vlc" && cp -R "$(dirname "$BIN")" "$RUNNER_TEMP/vlc/"
+          ls "$RUNNER_TEMP/vlc/MobileVLCKit.framework"
+          echo "::notice title=vlc::MobileVLCKit $VER"
+          rm -rf vlc vlc.archive
 
       - name: Generate Xcode project
         run: pnpm tauri ios init --ci
@@ -158,6 +210,12 @@ jobs:
           DEPS=$(otool -L "$EXE" | awk 'NR>1 {print $1}' | { grep -v '^/System/\|^/usr/lib/' || true; } | tr '\n' ' ')
           echo "::notice title=app-deps::non-system deps: ${DEPS:-none} | Frameworks/: $(ls "$APP/Frameworks" 2>/dev/null | tr '\n' ' ') | missing:${MISSING:- none}"
           [ -z "$MISSING" ] || { echo "::error::app links libraries that are not in the bundle:$MISSING"; exit 1; }
+          # VLC build: embed (not link) VLC; the app dlopens it when needed.
+          if [ "${{ matrix.variant }}" = "vlc" ]; then
+            mkdir -p "$APP/Frameworks"
+            cp -R "$RUNNER_TEMP/vlc/MobileVLCKit.framework" "$APP/Frameworks/"
+            ls -la "$APP/Frameworks"
+          fi
           rm -rf ipa && mkdir -p ipa/Payload
           cp -R "$APP" ipa/Payload/
           (cd ipa && zip -qry ../Compass-unsigned.ipa Payload)
@@ -165,7 +223,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Compass-iOS-unsigned-ipa
+          name: Compass-iOS-${{ matrix.variant }}-unsigned-ipa
           path: Compass-unsigned.ipa
           retention-days: 14
 
@@ -176,11 +234,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp Compass-unsigned.ipa Compass.ipa
+          NAME=Compass.ipa
+          [ "${{ matrix.variant }}" = "vlc" ] && NAME=Compass-VLC.ipa
+          cp Compass-unsigned.ipa "$NAME"
           NOTES="Built from ${GITHUB_SHA::7} on $(date -u '+%Y-%m-%d %H:%M UTC'). Unsigned: install with Sideloadly, AltStore, SideStore or Feather."
           if gh release view ios-latest >/dev/null 2>&1; then
-            gh release upload ios-latest Compass.ipa --clobber
+            gh release upload ios-latest "$NAME" --clobber
             gh release edit ios-latest --notes "$NOTES"
           else
-            gh release create ios-latest Compass.ipa --title "Compass iOS (latest build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA"
+            gh release create ios-latest "$NAME" --title "Compass iOS (latest build)" --notes "$NOTES" --prerelease --target "$GITHUB_SHA" \
+              || gh release upload ios-latest "$NAME" --clobber
           fi

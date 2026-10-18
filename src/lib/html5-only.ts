@@ -25,3 +25,9 @@ export function isIosApp(): boolean {
 export function isDesktopShell(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window && !isHtml5OnlyRuntime();
 }
+
+/**
+ * "Compass VLC" iOS build: bundles a native (VLC) player for every format the
+ * system player cannot open. Set by CI (VITE_IOS_NATIVE_PLAYER=1).
+ */
+export const IOS_NATIVE_BUILD = import.meta.env.VITE_IOS_NATIVE_PLAYER === "1";
